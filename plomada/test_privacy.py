@@ -221,7 +221,7 @@ def test_ficha_shell_verificable():
 
 
 def test_urls_compartibles():
-    for ruta in ("index.html", "mapa/index.html", "buscar/index.html",
+    for ruta in ("index.html", "plomada/index.html", "mapa/index.html", "buscar/index.html",
                  "metodologia/index.html", "datos/index.html", "sitemap.xml",
                  "contrato/index.html", "municipio/index.html"):
         check((SITE / ruta).exists(), f"falta {ruta}")
@@ -260,13 +260,15 @@ def test_tasa_ajustada():
     # fuentes distintas y compararlas hacia fallar el build por un desacuerdo
     # entre datasets, no por un ranking mal ordenado. Lo que importa es que lo
     # PUBLICADO este ordenado por tasa ajustada, y eso se lee del HTML.
-    portada = (SITE / "index.html").read_text(encoding="utf-8")
+    # La portada de Plomada vive en /plomada/: la raiz (/) es la landing
+    # comercial de Adjudica y no publica ranking alguno.
+    portada = (SITE / "plomada" / "index.html").read_text(encoding="utf-8")
     tasas = [float(x.replace(".", "").replace(",", "."))
              for x in re.findall(r'class="num destacado">([\d.,]+)%<', portada)]
     check(tasas, "la portada no publica ninguna tasa ajustada")
     check(tasas == sorted(tasas, reverse=True),
           f"la portada no ordena los municipios por tasa ajustada: {tasas[:12]}")
-    for pag in (SITE / "index.html", SITE / "mapa" / "index.html"):
+    for pag in (SITE / "plomada" / "index.html", SITE / "mapa" / "index.html"):
         t = pag.read_text(encoding="utf-8")
         check("Tasa cruda" in t and "Tasa ajustada" in t,
               f"{pag.relative_to(SITE)} no muestra las dos tasas juntas")
