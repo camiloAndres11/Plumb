@@ -261,7 +261,7 @@ def test_tasa_ajustada():
     # entre datasets, no por un ranking mal ordenado. Lo que importa es que lo
     # PUBLICADO este ordenado por tasa ajustada, y eso se lee del HTML.
     # La portada de Plomada vive en /plomada/: la raiz (/) es la landing
-    # comercial de Adjudica y no publica ranking alguno.
+    # comercial de Pliego y no publica ranking alguno.
     portada = (SITE / "plomada" / "index.html").read_text(encoding="utf-8")
     tasas = [float(x.replace(".", "").replace(",", "."))
              for x in re.findall(r'class="num destacado">([\d.,]+)%<', portada)]

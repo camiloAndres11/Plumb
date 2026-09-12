@@ -1,4 +1,4 @@
-/* Landing de Adjudica (/). Tres comportamientos, cero dependencias:
+/* Landing de Pliego (/). Tres comportamientos, cero dependencias:
    1. pestañas de "Funciones" (role=tablist, flechas y clic);
    2. revelado al hacer scroll de los bloques [data-reveal];
    3. el parrafo de intro que cruza el centro de la pantalla se enciende.

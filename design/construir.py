@@ -68,7 +68,7 @@ CABECERA = """/* GENERADO por design/construir.py — NO EDITAR A MANO.
 """
 
 CABECERA_LANDING = """/* GENERADO por design/construir.py — NO EDITAR A MANO.
- * Hoja de la landing comercial de Adjudica (/). Dos piezas, nada mas:
+ * Hoja de la landing comercial de Pliego (/). Dos piezas, nada mas:
  *   1. design/plomada/fuentes.css   (Archivo auto-hospedada)
  *   2. design/plomada/landing.css   (la landing: tokens --ad-*, layout, movimiento)
  * No carga Modernist ni sitio.css: la landing tiene su propio shell.

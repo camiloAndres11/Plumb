@@ -847,7 +847,7 @@ def portada(muns, cifras, top_contratos):
 
 
 # --------------------------------------------------------------- landing (/)
-# La raiz del sitio es la landing comercial de Adjudica (Claude Design,
+# La raiz del sitio es la landing comercial de Pliego (Claude Design,
 # proyecto "Rebranding project briefing", artboard "Adjudica Landing Fora").
 # No pasa por pagina(): tiene su propio shell (nav, pie, tono unico oscuro)
 # y su propia hoja, /static/landing.css, que compone design/construir.py.
