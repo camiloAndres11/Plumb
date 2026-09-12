@@ -72,7 +72,9 @@ def titulo_caso(s: str | None) -> str:
     chicas = {"de", "del", "la", "las", "los", "el", "y", "e", "en", "para", "por", "a", "al"}
     out = []
     for i, w in enumerate(s.lower().split()):
-        out.append(w if (w in chicas and i) else (w.upper() if w in {"sena", "esp", "e.s.p.", "i.e.", "sas", "s.a.s.", "s.a.", "ltda"} else w.capitalize()))
+        siglas = {"sena", "esp", "e.s.p.", "e.s.p", "i.e.", "i.e", "i.e.m.", "sas", "s.a.s.", "s.a.s", "s.a.", "s.a", "sa",
+                  "ltda", "ltda.", "bic", "e.s.e", "e.s.e.", "ese", "cvc", "eici", "cenac", "invias", "ani", "idu", "ut", "u.t."}
+        out.append(w if (w in chicas and i) else (w.upper() if w in siglas else w.capitalize()))
     return " ".join(out)
 
 
