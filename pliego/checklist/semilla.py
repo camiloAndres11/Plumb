@@ -71,8 +71,10 @@ def localizar(cita: str, palabras) -> list[tuple[float, float, float, float]]:
     cajas: list[list[float]] = []
     for _, x0, y0, x1, y1 in palabras[mejor_i:mejor_i + n]:
         if cajas and abs(cajas[-1][1] - y0) < 3:
-            cajas[-1][0] = min(cajas[-1][0], x0); cajas[-1][2] = max(cajas[-1][2], x1)
-            cajas[-1][1] = min(cajas[-1][1], y0); cajas[-1][3] = max(cajas[-1][3], y1)
+            cajas[-1][0] = min(cajas[-1][0], x0)
+            cajas[-1][2] = max(cajas[-1][2], x1)
+            cajas[-1][1] = min(cajas[-1][1], y0)
+            cajas[-1][3] = max(cajas[-1][3], y1)
         else:
             cajas.append([x0, y0, x1, y1])
     return [tuple(c) for c in cajas]
@@ -86,7 +88,7 @@ def main() -> int:
     pdf = FIXTURES / datos["proceso"]["pdf"]
     PAGINAS.mkdir(exist_ok=True)
     salida, cache = {}, {}
-    paginas = sorted({r["pagina"] for r in datos["requisitos"]} | {l["pagina"] for l in datos["proceso"]["lotes"]})
+    paginas = sorted({r["pagina"] for r in datos["requisitos"]} | {lote_["pagina"] for lote_ in datos["proceso"]["lotes"]})
     for n in paginas:
         cache[n] = palabras_pagina(pdf, n)
         subprocess.run(["pdftoppm", "-r", "72", "-png", "-f", str(n), "-l", str(n), str(pdf),

@@ -108,18 +108,18 @@ def checklist(lote: int = Query(1, ge=1)):
         ck = datos.checklist(lote)
     except KeyError:
         raise HTTPException(404, "ese lote no existe en el pliego")
-    p, l, res = ck["proceso"], ck["lote"], ck["resumen"]
+    p, lote_, res = ck["proceso"], ck["lote"], ck["resumen"]
     c = res["conteo"]
     reqs = ck["requisitos"]
     bloquean = [r for r in reqs if r["estado"] in (logica.NO_CUMPLE, logica.FALTA)]
     revisar = [r for r in reqs if r["estado"] == logica.REVISAR]
     ok = [r for r in reqs if r["estado"] == logica.CUMPLE]
     n_b = len(bloquean)
-    titular = ("Queda habilitado en el Grupo %d; %d puntos por revisar." % (l["n"], len(revisar)) if not n_b else
-               ("Le falta 1 cosa para quedar habilitado en el Grupo %d." % l["n"] if n_b == 1 else
-                "Le faltan %d cosas para quedar habilitado en el Grupo %d." % (n_b, l["n"])))
+    titular = ("Queda habilitado en el Grupo %d; %d puntos por revisar." % (lote_["n"], len(revisar)) if not n_b else
+               ("Le falta 1 cosa para quedar habilitado en el Grupo %d." % lote_["n"] if n_b == 1 else
+                "Le faltan %d cosas para quedar habilitado en el Grupo %d." % (n_b, lote_["n"])))
     tabs = "".join(
-        f'<a class="tab{" on" if x["n"] == l["n"] else ""}" href="/?lote={x["n"]}">Grupo {x["n"]} · {W.mill(x["presupuesto"])}</a>'
+        f'<a class="tab{" on" if x["n"] == lote_["n"] else ""}" href="/?lote={x["n"]}">Grupo {x["n"]} · {W.mill(x["presupuesto"])}</a>'
         for x in p["lotes"])
 
     def stat(label, n, clase=""):
@@ -130,18 +130,18 @@ def checklist(lote: int = Query(1, ge=1)):
 <div class="cab">
   <div><div class="kicker">{W.h(p['id'])} · {W.h(W.titulo_caso(p['entidad']))} · Licitación de obra pública</div>
   <h1 class="titulo" style="font-size:26px;max-width:820px">{W.h(titular)}</h1>
-  <p class="mute" style="font-size:14px;margin-top:6px">{W.h(l['nombre'])} · plazo {l['plazo_meses']} meses · {W.entero(l['cuantia_smmlv'])} SMMLV</p></div>
+  <p class="mute" style="font-size:14px;margin-top:6px">{W.h(lote_['nombre'])} · plazo {lote_['plazo_meses']} meses · {W.entero(lote_['cuantia_smmlv'])} SMMLV</p></div>
   <div class="tabs">{tabs}</div>
 </div>
 <div class="stats-4">{stat("Cumple", c['cumple'])}{stat("No cumple", c['no_cumple'], "hot" if c['no_cumple'] else "mute")}
 {stat("Falta documento", c['falta_documento'], "hot" if c['falta_documento'] else "mute")}{stat("Revisar", c['revisar'], "mute")}</div>
-{_grupo("Lo que impide presentarse hoy", "primero lo que no se subsana solo", bloquean, l['n'])}
-{_grupo("Revisar", "juicio humano o umbral que no viene en el PDF", revisar, l['n'])}
-{_grupo("Cumple", f"{len(ok)} de {res['total']}", ok, l['n'])}
+{_grupo("Lo que impide presentarse hoy", "primero lo que no se subsana solo", bloquean, lote_['n'])}
+{_grupo("Revisar", "juicio humano o umbral que no viene en el PDF", revisar, lote_['n'])}
+{_grupo("Cumple", f"{len(ok)} de {res['total']}", ok, lote_['n'])}
 <p class="foot-note">Cada requisito enlaza a la página exacta del pliego donde está escrito. Los umbrales financieros no vienen en el PDF (Matriz 2): se marcan para revisar aunque el dato cumpla.
 La extracción de requisitos es manual en este prototipo; la carpeta de documentos es ficticia. <a href="/pliego.pdf" target="_blank" style="color:var(--ad-ink-85)">Abrir el pliego completo →</a></p>
 """
-    return W.pagina(f"Checklist · Grupo {l['n']}", cuerpo, _side("/"), EXTRA_CSS)
+    return W.pagina(f"Checklist · Grupo {lote_['n']}", cuerpo, _side("/"), EXTRA_CSS)
 
 
 @app.get("/requisito/{id_req}", response_class=HTMLResponse)

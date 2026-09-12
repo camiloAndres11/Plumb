@@ -34,14 +34,14 @@ def contexto() -> dict:
 
 
 def lote(n: int) -> dict | None:
-    return next((l for l in extraccion()["proceso"]["lotes"] if l["n"] == n), None)
+    return next((lote_ for lote_ in extraccion()["proceso"]["lotes"] if lote_["n"] == n), None)
 
 
 def verificaciones(n_lote: int) -> list[logica.Verificacion]:
-    l = lote(n_lote)
-    if l is None:
+    lote_ = lote(n_lote)
+    if lote_ is None:
         raise KeyError(n_lote)
-    return logica.verificar_todo(extraccion()["requisitos"], carpeta()["documentos"], contexto(), l)
+    return logica.verificar_todo(extraccion()["requisitos"], carpeta()["documentos"], contexto(), lote_)
 
 
 def checklist(n_lote: int) -> dict:
