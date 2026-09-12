@@ -15,13 +15,20 @@ en un paso de build separado, el artefacto que de verdad se sirve, cosiendo:
   4. design/plomada/sitio.css     - layout y componentes de pagina del proyecto
   5. design/plomada/tema.css      - delta de tokens de la banda oscura
 
+Y, aparte, plomada/static/landing.css para la landing comercial de la raiz
+(/), que tiene su propio shell y NO carga Modernist ni sitio.css:
+
+  1. design/plomada/fuentes.css   - la misma Archivo auto-hospedada
+  2. design/plomada/landing.css   - la hoja de la landing (ver su cabecera)
+
 Asi modernist/ se puede volver a bajar completo el dia que el sistema cambie
 (paso 1 de VENDOR.md) sin que el sitio vuelva a pedirle nada a Google, y sin
 tocar un solo caracter dentro de modernist/.
 
 Uso:  python3 design/construir.py
-Salida: plomada/static/estilo.css (se sobreescribe siempre; no se edita a
-mano — cualquier cambio de estilo entra por una de las cinco piezas de arriba).
+Salida: plomada/static/estilo.css y plomada/static/landing.css (se
+sobreescriben siempre; no se editan a mano — cualquier cambio de estilo entra
+por una de las piezas de arriba).
 """
 import re
 import sys
@@ -38,6 +45,10 @@ SITIO = DESIGN / "plomada" / "sitio.css"
 # accidental (docs/PLAN_TEMA_API_MCP.md §4.1).
 TEMA = DESIGN / "plomada" / "tema.css"
 SALIDA = RAIZ / "plomada" / "static" / "estilo.css"
+# La landing comercial (/) no comparte shell con el resto del sitio: solo
+# lleva la fuente y su propia hoja.
+LANDING = DESIGN / "plomada" / "landing.css"
+SALIDA_LANDING = RAIZ / "plomada" / "static" / "landing.css"
 
 # Cualquier @import (a una URL) se filtra: es exactamente lo que hay que
 # quitarle al vendor sin tocar el archivo vendorizado. Si algun dia
@@ -52,6 +63,15 @@ CABECERA = """/* GENERADO por design/construir.py — NO EDITAR A MANO.
  *   3. design/plomada/dataviz.css   (extension de color/graficos del proyecto)
  *   4. design/plomada/sitio.css     (layout y componentes de pagina del proyecto)
  *   5. design/plomada/tema.css      (delta de tokens de la banda oscura)
+ * Para regenerar: python3 design/construir.py
+ */
+"""
+
+CABECERA_LANDING = """/* GENERADO por design/construir.py — NO EDITAR A MANO.
+ * Hoja de la landing comercial de Adjudica (/). Dos piezas, nada mas:
+ *   1. design/plomada/fuentes.css   (Archivo auto-hospedada)
+ *   2. design/plomada/landing.css   (la landing: tokens --ad-*, layout, movimiento)
+ * No carga Modernist ni sitio.css: la landing tiene su propio shell.
  * Para regenerar: python3 design/construir.py
  */
 """
@@ -92,6 +112,12 @@ def main():
     SALIDA.parent.mkdir(parents=True, exist_ok=True)
     SALIDA.write_text(salida, encoding="utf-8")
     print(f"escrito {SALIDA.relative_to(RAIZ)} ({len(salida)} bytes, sin URLs externas)")
+
+    landing = "\n\n".join([CABECERA_LANDING, fuentes.strip(), leer(LANDING).strip(), ""])
+    if "https://" in landing or "http://" in landing:
+        sys.exit("el landing.css compuesto contiene una URL externa — no se escribe")
+    SALIDA_LANDING.write_text(landing, encoding="utf-8")
+    print(f"escrito {SALIDA_LANDING.relative_to(RAIZ)} ({len(landing)} bytes, sin URLs externas)")
 
 
 if __name__ == "__main__":

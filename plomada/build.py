@@ -842,8 +842,25 @@ def portada(muns, cifras, top_contratos):
 """
     return pagina(LEMA, "Plomada detecta indicios de irregularidad en la contratación de obra "
                   "pública en Colombia siguiendo a las personas que firman, no a las empresas. "
-                  "Datos públicos del SECOP II.", cuerpo, "/", clase="pg-portada",
+                  "Datos públicos del SECOP II.", cuerpo, "/plomada/", clase="pg-portada",
                   js=ISLAS_JS, cabecera=cabecera, pie_aviso=False)
+
+
+# --------------------------------------------------------------- landing (/)
+# La raiz del sitio es la landing comercial de Adjudica (Claude Design,
+# proyecto "Rebranding project briefing", artboard "Adjudica Landing Fora").
+# No pasa por pagina(): tiene su propio shell (nav, pie, tono unico oscuro)
+# y su propia hoja, /static/landing.css, que compone design/construir.py.
+# El HTML vive en landing.html como archivo completo -- es una pagina de
+# marketing con mucho CSS de por medio, y meterla en un f-string solo
+# obligaria a escapar llaves. build.py sigue siendo el UNICO escritor de
+# site/: la copia pasa por escribir() y test_privacy.py la barre igual que
+# a las demas vistas (vocabulario, URLs externas).
+LANDING = RAIZ / "landing.html"
+
+
+def landing():
+    return LANDING.read_text(encoding="utf-8")
 
 
 def pagina_tablero():
@@ -1417,8 +1434,11 @@ def main():
     cifras.update(cifras_universo(datos_api))
     escribir("metodologia/index.html", pagina_metodologia(glos, cifras, cifras["umbral"]))
 
-    # portada
-    escribir("index.html", portada(muns, cifras, tops))
+    # raiz: la landing comercial. La portada de Plomada (cifras, ranking,
+    # vistas) sigue existiendo en /plomada/ y en el sitemap: es el hub del
+    # producto, no desaparece, cambia de sitio.
+    escribir("index.html", landing())
+    escribir("plomada/index.html", portada(muns, cifras, tops))
 
     # descargas: los CSV completos ya no se generan aqui. El API los sirve,
     # pero `formato=csv` respeta `limite<=200`, asi que no hay descarga masiva
@@ -1431,7 +1451,7 @@ def main():
     # sitemap + robots. Las fichas se hidratan en el navegador, pero SIGUEN
     # teniendo URL propia y entrando al sitemap: es lo que las mantiene
     # compartibles y rastreables (restriccion 2.3 del plan).
-    urls = ["/", "/tablero/", "/mapa/", "/buscar/", "/metodologia/", "/datos/",
+    urls = ["/", "/plomada/", "/tablero/", "/mapa/", "/buscar/", "/metodologia/", "/datos/",
             "/api/", "/asistente/"] + \
            [f"/contrato/{D.slug(i)}/" for i in ids] + \
            [url_municipio(m["departamento"], m["ciudad"]) for m in muns]
