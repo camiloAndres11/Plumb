@@ -184,8 +184,16 @@ def competidores_probables(contratos: list[dict], proceso: dict, hoy: date, n: i
         nombres[doc] = c.get("proveedor")
     if not puntos:
         return []
+    # El perfil (saturacion) solo se calcula para los mejores por puntos
+    # brutos: como la saturacion resta a lo sumo el 50 %, nadie por debajo
+    # de la mitad del n-esimo puede colarse al top n. Con familias grandes
+    # son miles de proveedores y calcular todos los perfiles tardaba segundos.
+    orden = sorted(puntos.items(), key=lambda kv: -kv[1])
+    corte = orden[min(n, len(orden)) - 1][1] / 2
     salida = []
-    for doc, p in puntos.items():
+    for doc, p in orden:
+        if p < corte:
+            break
         perfil = (perfiles or {}).get(doc) or perfil_competidor(contratos, doc, hoy)
         sat = perfil["saturacion"] if perfil else 0.0
         ajuste = 1 - min(0.5, sat / 4)
