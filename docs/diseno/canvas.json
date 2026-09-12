@@ -1,0 +1,40 @@
+{
+ "artboards": [
+  {
+   "file": "Main.dc.html",
+   "x": 0,
+   "y": 0,
+   "w": 1440,
+   "h": 1000,
+   "title": "Competidores probables de un proceso"
+  },
+  {
+   "file": "Entidad.dc.html",
+   "x": 1540,
+   "y": 0,
+   "w": 1440,
+   "h": 1000,
+   "title": "Perfil de entidad"
+  },
+  {
+   "file": "Competidor.dc.html",
+   "x": 3080,
+   "y": 0,
+   "w": 1440,
+   "h": 1000,
+   "title": "Perfil de competidor"
+  }
+ ],
+ "annotations": [
+  {
+   "id": "nota-brief",
+   "x": 0,
+   "y": -170,
+   "w": 560,
+   "text": "Radar de competidores · Pliego\nDatos reales: Municipio de Bucaramanga (obras), SOSDOM S.A.S y el proceso CO1.REQ.10751505. Estilo base: new-landing.\nEl rojo marca al primero de la lista y a la cifra clave; saturación como barra de 0 a 3 años."
+  }
+ ],
+ "launch": {
+  "view": "canvas"
+ }
+}
