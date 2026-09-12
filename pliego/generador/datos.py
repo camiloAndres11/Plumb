@@ -27,15 +27,15 @@ def perfil() -> dict:
 
 
 def lote(n: int) -> dict | None:
-    return next((l for l in pliego()["lotes"] if l["n"] == n), None)
+    return next((lote_ for lote_ in pliego()["lotes"] if lote_["n"] == n), None)
 
 
 @lru_cache(maxsize=8)
 def documentos(n_lote: int) -> list[logica.Documento]:
-    l = lote(n_lote)
-    if l is None:
+    lote_ = lote(n_lote)
+    if lote_ is None:
         raise KeyError(n_lote)
-    return logica.generar_todo(pliego(), perfil(), l, FECHA_CIERRE)
+    return logica.generar_todo(pliego(), perfil(), lote_, FECHA_CIERRE)
 
 
 def documento(id_doc: str, n_lote: int) -> logica.Documento | None:

@@ -107,7 +107,8 @@ def test_formato2_no_aplica_a_proponente_individual(ctx):
 
 
 def test_formatos_de_puntaje_marcan_lo_que_el_generador_no_puede_redactar(ctx):
-    d7 = L.formato7(*ctx, HOY); d8 = L.formato8(*ctx, HOY)
+    d7 = L.formato7(*ctx, HOY)
+    d8 = L.formato8(*ctx, HOY)
     assert campo(d7, "plan").origen == L.FALTANTE and not campo(d7, "plan").critico
     assert campo(d8, "certificado").origen == L.FALTANTE and d8.estado == L.CON_FALTANTES
 

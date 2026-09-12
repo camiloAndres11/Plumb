@@ -97,19 +97,19 @@ def md_a_html(md: str) -> str:
     out = []
     for b in bloques:
         lineas = b.split("\n")
-        if all(l.strip().startswith("|") for l in lineas):
-            filas = [[c.strip() for c in l.strip().strip("|").split("|")] for l in lineas if not re.match(r"^\|\s*-", l.strip())]
+        if all(lote_.strip().startswith("|") for lote_ in lineas):
+            filas = [[c.strip() for c in lote_.strip().strip("|").split("|")] for lote_ in lineas if not re.match(r"^\|\s*-", lote_.strip())]
             if not filas:
                 continue
             th = "".join(f"<th>{inline(c)}</th>" for c in filas[0])
             td = "".join("<tr>" + "".join(f"<td>{inline(c)}</td>" for c in f) + "</tr>" for f in filas[1:])
             out.append(f"<table><thead><tr>{th}</tr></thead><tbody>{td}</tbody></table>")
-        elif all(re.match(r"^\d+\. ", l.strip()) for l in lineas):
-            out.append("<ol>" + "".join(f"<li>{inline(re.sub(r'^\d+\. ', '', l.strip()))}</li>" for l in lineas) + "</ol>")
-        elif all(l.strip().startswith("- ") for l in lineas):
-            out.append("<ul>" + "".join(f"<li>{inline(l.strip()[2:])}</li>" for l in lineas) + "</ul>")
+        elif all(re.match(r"^\d+\. ", lote_.strip()) for lote_ in lineas):
+            out.append("<ol>" + "".join(f"<li>{inline(re.sub(r'^\d+\. ', '', lote_.strip()))}</li>" for lote_ in lineas) + "</ol>")
+        elif all(lote_.strip().startswith("- ") for lote_ in lineas):
+            out.append("<ul>" + "".join(f"<li>{inline(lote_.strip()[2:])}</li>" for lote_ in lineas) + "</ul>")
         else:
-            out.append("<p>" + "<br>".join(inline(l) for l in lineas) + "</p>")
+            out.append("<p>" + "<br>".join(inline(lote_) for lote_ in lineas) + "</p>")
     return "".join(out)
 
 
@@ -181,13 +181,13 @@ def inicio(lote: int = Query(1, ge=1)):
         p = datos.paquete(lote)
     except KeyError:
         raise HTTPException(404, "ese lote no existe en el pliego")
-    r, l = p["resumen"], p["lote"]
+    r, lote_ = p["resumen"], p["lote"]
     aplican = r["total"] - r["conteo"][L.NO_APLICA]
     pct = round(100 * r["conteo"][L.LISTO] / aplican) if aplican else 0
     nc = r["faltantes_criticos"]
     titular = (f"La propuesta está al {pct} %: {r['conteo'][L.LISTO]} borradores listos, "
                + ("nada la rechaza." if nc == 0 else ("falta 1 cosa que la rechaza." if nc == 1 else f"faltan {nc} cosas que la rechazan.")))
-    tabs = "".join(f'<a class="tab{" on" if x["n"] == l["n"] else ""}" href="/?lote={x["n"]}">Grupo {x["n"]}</a>' for x in p["proceso"]["lotes"])
+    tabs = "".join(f'<a class="tab{" on" if x["n"] == lote_["n"] else ""}" href="/?lote={x["n"]}">Grupo {x["n"]}</a>' for x in p["proceso"]["lotes"])
     filas = ""
     for d in p["documentos"]:
         n = {o: sum(1 for c in d["campos"] if c["origen"] == o) for o in ORIGEN}
@@ -198,7 +198,7 @@ def inicio(lote: int = Query(1, ge=1)):
     falta = "".join(f'<div class="falta"><span><b class="{"hot" if f["critico"] else ""}">{W.h(f["etiqueta"])}</b><small>{W.h(f["documento_nombre"])} · {W.h(f["fuente"])}</small></span>{_otag(L.FALTANTE, " · rechazo" if f["critico"] else "")}</div>'
                     for f in p["faltantes"]) or '<span class="mute" style="font-size:13px">Nada: todo lo que el pliego pide está en el perfil.</span>'
     cuerpo = f"""
-<div class="cab"><div><div class="kicker">{W.h(p['proceso']['id'])} · {W.h(datos.pliego()['campos']['entidad']['valor'])} · Grupo {l['n']} · {W.mill(l['presupuesto'])}</div>
+<div class="cab"><div><div class="kicker">{W.h(p['proceso']['id'])} · {W.h(datos.pliego()['campos']['entidad']['valor'])} · Grupo {lote_['n']} · {W.mill(lote_['presupuesto'])}</div>
 <h1 class="titulo" style="font-size:26px">{W.h(titular)}</h1>
 <p class="mute" style="font-size:14px;margin-top:6px">{r['origenes'][L.PLIEGO]} datos salieron del pliego, {r['origenes'][L.PERFIL]} del perfil, {r['origenes'][L.CALCULADO]} se calcularon y {r['origenes'][L.FALTANTE]} faltan.</p></div>
 <div style="display:flex;gap:10px;align-items:center"><div class="tabs">{tabs}</div><a class="btn" style="padding:11px 20px;font-size:14px" href="/paquete.zip?lote={lote}">Exportar paquete (.zip)</a></div></div>

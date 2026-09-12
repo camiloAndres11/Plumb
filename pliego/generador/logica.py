@@ -202,10 +202,13 @@ def formato4(pliego, perfil, lote, hoy) -> Documento:
               _f(perfil, "financiero.contador", "Contador", clave="contador"), _f(perfil, "financiero.revisor_fiscal", "Revisor fiscal", clave="revisor"),
               _p(pliego, "capital_trabajo_pct", "% de capital de trabajo demandado"), _lote(lote, "presupuesto", "Presupuesto oficial del grupo")]
     if all(f.get(k) for k in ("activo_corriente", "pasivo_corriente", "pasivo_total", "activo_total", "utilidad_operacional", "patrimonio")):
-        liq = f["activo_corriente"] / f["pasivo_corriente"]; end = f["pasivo_total"] / f["activo_total"]
+        liq = f["activo_corriente"] / f["pasivo_corriente"]
+        end = f["pasivo_total"] / f["activo_total"]
         cob = f["utilidad_operacional"] / f["gastos_interes"] if f.get("gastos_interes") else float("inf")
-        roe = f["utilidad_operacional"] / f["patrimonio"]; roa = f["utilidad_operacional"] / f["activo_total"]
-        ct = f["activo_corriente"] - f["pasivo_corriente"]; ctd = pliego["campos"]["capital_trabajo_pct"]["valor"] * lote["presupuesto"]
+        roe = f["utilidad_operacional"] / f["patrimonio"]
+        roa = f["utilidad_operacional"] / f["activo_total"]
+        ct = f["activo_corriente"] - f["pasivo_corriente"]
+        ctd = pliego["campos"]["capital_trabajo_pct"]["valor"] * lote["presupuesto"]
         campos += [_c("liquidez", "Índice de liquidez", round(liq, 2), "activo corriente / pasivo corriente (p. 34)"),
                    _c("endeudamiento", "Nivel de endeudamiento", round(end, 3), "pasivo total / activo total (p. 34)"),
                    _c("cobertura", "Cobertura de intereses", round(cob, 2) if cob != float("inf") else "sin gastos de interés", "utilidad operacional / gastos de interés (p. 34)"),
@@ -238,7 +241,8 @@ def formato5(pliego, perfil, lote, hoy) -> Documento:
               _p(pliego, "anticipo_pct", "Anticipo"),
               _f(perfil, "capacidad_residual.contratos_en_ejecucion", "Contratos en ejecución", critico=True, clave="ejecucion"),
               _f(perfil, "capacidad_residual.crp", "Capacidad residual del proponente (CRP)", critico=True, clave="crp")]
-    poe = lote["presupuesto"]; ant = pliego["campos"]["anticipo_pct"]["valor"] * poe
+    poe = lote["presupuesto"]
+    ant = pliego["campos"]["anticipo_pct"]["valor"] * poe
     crpc = poe - ant
     if lote["plazo_meses"] > 12:
         crpc = crpc * 12 / lote["plazo_meses"]
@@ -249,7 +253,8 @@ def formato5(pliego, perfil, lote, hoy) -> Documento:
     filas = []
     for c in ejec:
         # SCE lineal: valor / plazo × dias pendientes × participacion (p. 43)
-        ini = date.fromisoformat(c["fecha_inicio"]); fin = ini + timedelta(days=c["plazo_dias"])
+        ini = date.fromisoformat(c["fecha_inicio"])
+        fin = ini + timedelta(days=c["plazo_dias"])
         # dias pendientes acotados al plazo: si aun no arranca, esta todo pendiente
         pend = min(c["plazo_dias"], max(0, (fin - hoy).days))
         sce = c["valor"] / c["plazo_dias"] * pend * c.get("participacion", 1)
@@ -319,8 +324,10 @@ def formato9(pliego, perfil, lote, hoy) -> Documento:
 
 
 def garantia(pliego, perfil, lote, hoy) -> Documento:
-    pct = _p(pliego, "garantia_seriedad_pct", "Porcentaje", critico=True); meses = _p(pliego, "garantia_seriedad_meses", "Vigencia (meses)")
-    benef = _p(pliego, "garantia_beneficiario", "Asegurado / beneficiario"); po = _lote(lote, "presupuesto", "Presupuesto oficial del grupo")
+    pct = _p(pliego, "garantia_seriedad_pct", "Porcentaje", critico=True)
+    meses = _p(pliego, "garantia_seriedad_meses", "Vigencia (meses)")
+    benef = _p(pliego, "garantia_beneficiario", "Asegurado / beneficiario")
+    po = _lote(lote, "presupuesto", "Presupuesto oficial del grupo")
     valor = pct.valor * lote["presupuesto"]
     campos = [pct, meses, benef, po, _f(perfil, "nombre", "Tomador (razón social exacta)", critico=True), _f(perfil, "nit", "NIT del tomador"),
               _c("valor_asegurado", "Valor asegurado", valor, "% × presupuesto del grupo (p. 59)", critico=True),
@@ -342,7 +349,6 @@ _La no entrega de la garantía no es subsanable: sin ella la oferta se rechaza._
 
 def anexos(pliego, perfil, lote, hoy) -> Documento:
     dias = pliego["campos"]["vigencia_certificados_dias"]["valor"]
-    cierre = pliego.get("fecha_cierre")
     def vig(clave, etiqueta, fecha):
         if not fecha:
             return Campo(clave, etiqueta, None, FALTANTE, "perfil." + clave, None, True)
