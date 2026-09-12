@@ -85,8 +85,10 @@ def test_experiencia_elige_contratos_terminados_de_las_actividades_hasta_cumplir
 def test_capacidad_residual_resta_anticipo_y_calcula_sce_lineal(ctx):
     d = L.formato5(*ctx, HOY)
     assert campo(d, "crpc").valor == pytest.approx(737_745_546 * 0.5)
-    # San Isidro: 1.558 mill / 240 dias * dias pendientes (inicio 2025-03-01 + 240 = 2025-10-27 < 2021? no: pendientes = max(0, ...))
+    # los dias pendientes se acotan al plazo: el SCE nunca supera el valor del contrato
     assert campo(d, "sce").origen == L.CALCULADO
+    assert campo(d, "sce").valor <= 1_558e6 + 980e6
+    assert campo(d, "sce").valor == pytest.approx(1_558e6 + 980e6)   # al cierre (2021) ninguno ha arrancado
     assert campo(d, "habil").valor is True and d.estado == L.LISTO
 
 

@@ -250,7 +250,8 @@ def formato5(pliego, perfil, lote, hoy) -> Documento:
     for c in ejec:
         # SCE lineal: valor / plazo × dias pendientes × participacion (p. 43)
         ini = date.fromisoformat(c["fecha_inicio"]); fin = ini + timedelta(days=c["plazo_dias"])
-        pend = max(0, (fin - hoy).days)
+        # dias pendientes acotados al plazo: si aun no arranca, esta todo pendiente
+        pend = min(c["plazo_dias"], max(0, (fin - hoy).days))
         sce = c["valor"] / c["plazo_dias"] * pend * c.get("participacion", 1)
         saldo += sce
         filas.append(f"| {c['objeto']} | {c['entidad']} | {_mill(c['valor'])} | {c['plazo_dias']} | {pend} | {_mill(sce)} |")
