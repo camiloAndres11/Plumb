@@ -10,6 +10,8 @@
 """
 from __future__ import annotations
 
+import threading
+
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -18,6 +20,20 @@ from pliego.comun import web as W
 from pliego.radar import datos
 
 app = FastAPI(title="Pliego · Radar de competidores", version="0.1.0")
+
+
+def _precalentar():
+    """Cargar los 67k contratos e indexarlos tarda unos segundos; se hace
+    en un hilo al importar para que la primera pagina no espere. No va en
+    el lifespan porque Starlette no lo propaga a una app montada."""
+    try:
+        datos.entidades_mas_activas()
+        datos.competidores_mas_activos()
+    except Exception:
+        pass
+
+
+threading.Thread(target=_precalentar, daemon=True).start()
 app.mount("/static", StaticFiles(directory=str(W.STATIC)), name="static")
 
 TIPOS = ["OBRA", "INTERVENTORIA", "CONSULTORIA"]

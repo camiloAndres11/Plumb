@@ -74,14 +74,17 @@ def competidores_de(id_proceso: str, n: int = 10) -> list[dict]:
         raise KeyError(id_proceso)
     # Solo los contratos que pueden puntuar: misma entidad o misma familia.
     cand = [c for c in contratos() if c.get("nit_entidad") == p["nit_entidad"] or (p.get("familia") and c.get("familia") == p["familia"])]
-    top = logica.competidores_probables(cand, p, HOY, n=n, perfiles=None)
-    # los perfiles se calculan sobre TODO el historico del proveedor (saturacion real)
-    for x in top:
-        perf = competidor(x["doc"])
-        if perf:
-            x.update({"saturacion": perf["saturacion"], "nivel_saturacion": perf["nivel_saturacion"],
-                      "mediana_ratio": perf["mediana_ratio"], "n_contratos": perf["n_contratos"]})
-    return top
+    # Los perfiles (saturacion real, sobre TODO el historico del proveedor)
+    # salen del indice por proveedor, no de recorrer `cand` una vez por doc:
+    # eso era lo que tardaba ~9 s por proceso.
+    return logica.competidores_probables(cand, p, HOY, n=n, perfiles=_PerfilesPorDemanda())
+
+
+class _PerfilesPorDemanda:
+    """dict-like: calcula (y cachea) el perfil de un proveedor solo cuando se pide."""
+
+    def get(self, doc):
+        return competidor(doc)
 
 
 @lru_cache(maxsize=1)
