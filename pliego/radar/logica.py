@@ -170,12 +170,15 @@ def competidores_probables(contratos: list[dict], proceso: dict, hoy: date, n: i
         a = _anio(c)
         peso = 1.0 if a and a >= hoy.year - ANIOS_RECIENTES else 0.5
         if c.get("nit_entidad") == nit:
-            puntos[doc] += 3 * peso; razones[doc]["entidad"] += 1
+            puntos[doc] += 3 * peso
+            razones[doc]["entidad"] += 1
         elif c.get("departamento") == dep and c.get("familia") == fam and fam:
-            puntos[doc] += 1 * peso; razones[doc]["departamento_familia"] += 1
+            puntos[doc] += 1 * peso
+            razones[doc]["departamento_familia"] += 1
         elif c.get("familia") == fam and fam:
             if razones[doc]["familia"] < 6:
-                puntos[doc] += 0.5 * peso; razones[doc]["familia"] += 1
+                puntos[doc] += 0.5 * peso
+                razones[doc]["familia"] += 1
         else:
             continue
         nombres[doc] = c.get("proveedor")

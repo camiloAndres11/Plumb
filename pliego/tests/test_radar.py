@@ -124,7 +124,6 @@ def test_sin_historico_devuelve_vacio():
 # ------------------------------------------------------------ humo
 def test_fixtures_reales():
     from pliego.radar import datos
-    ent = datos.entidad("899999094")   # INVIAS? cualquiera con muestra
     top = datos.entidades_mas_activas(5)
     assert len(top) == 5
     p = datos.entidad(top[0]["nit"])

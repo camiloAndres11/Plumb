@@ -114,9 +114,11 @@ def buscar(q: str, n: int = 20) -> dict:
     for c in contratos():
         e, pnom = (c.get("entidad") or "").lower(), (c.get("proveedor") or "").lower()
         if q in e and c["nit_entidad"] not in seen_e:
-            seen_e.add(c["nit_entidad"]); ents.append({"nit": c["nit_entidad"], "entidad": c.get("entidad"), "departamento": c.get("departamento")})
+            seen_e.add(c["nit_entidad"])
+            ents.append({"nit": c["nit_entidad"], "entidad": c.get("entidad"), "departamento": c.get("departamento")})
         if q in pnom and c["doc_proveedor"] not in seen_p:
-            seen_p.add(c["doc_proveedor"]); provs.append({"doc": c["doc_proveedor"], "nombre": c.get("proveedor")})
+            seen_p.add(c["doc_proveedor"])
+            provs.append({"doc": c["doc_proveedor"], "nombre": c.get("proveedor")})
         if len(ents) >= n and len(provs) >= n:
             break
     return {"entidades": ents[:n], "competidores": provs[:n]}
