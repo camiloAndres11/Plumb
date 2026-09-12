@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import math
 import statistics
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Callable
 
 # Cada formula recibe (valores de todas las ofertas habiles, valor de la

@@ -21,9 +21,9 @@ pruebas).
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, asdict
 
-from pliego.simulador.metodos import Version, Metodo
+from pliego.simulador.metodos import Version
 
 PISO_MUESTRA = 10   # minimo de procesos para usar un nivel del pool
 

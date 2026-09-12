@@ -34,7 +34,7 @@ def test_media_geometrica_maximo_a_la_mas_cercana():
 
 def test_media_aritmetica_baja():
     vals = [90, 95, 100]
-    xb = (90 + 95) / 2   # 92.5
+    # XB = (90 + 95) / 2 = 92,5
     assert M.media_aritmetica_baja(vals, 92.5, MAX) == MAX
     assert M.media_aritmetica_baja(vals, 100, MAX) == pytest.approx(MAX * (1 - 7.5 / 92.5))
 
