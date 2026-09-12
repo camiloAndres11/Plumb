@@ -85,8 +85,8 @@ método → mover el slider para comparar cualquier precio → ir a Backtest.
 - **Sin piso de precio artificialmente bajo**: el pliego permite rechazar
   ofertas muy bajas (sección 4.1.3); la malla arranca en 85 % como
   aproximación.
-- El backtest tarda ~13 s la primera vez (40 procesos × 120 escenarios en
-  Python puro, sin numpy) y queda en caché.
+- El backtest tarda ~5 s (40 procesos × 80 escenarios, malla de 1 %, Python
+  puro) y se precalcula en un hilo al arrancar el servicio.
 - Snapshot 2026-08-22 tratado como "hoy".
 
 ## 6. Cómo probarlo
@@ -100,8 +100,8 @@ Abrir `http://localhost:8030/proceso/CO1.REQ.10846514` (acueducto,
 Municipio de Maripí, $512 mill.): "Oferte al 94,5 %: $484 millones",
 rango 90,0–97,0 %, esperado 58,9 de 60, curva con el máximo de "menor
 valor" en 85 % y el de mediana/geométrica en ~95 %. Mover el slider
-cambia los puntajes por método. `/backtest`: ~64 % le gana al ganador
-real, ~32 % queda primero entre ~12 ofertas.
+cambia los puntajes por método. `/backtest`: ~65 % le gana al ganador
+real, ~31 % queda primero entre ~12 ofertas.
 
 Regenerar fixtures (requiere el warehouse): `python -m pliego.simulador.semilla`.
 
