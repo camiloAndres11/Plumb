@@ -1,0 +1,27 @@
+{
+  "_nota": "Carpeta de documentos FICTICIA de Constructora Andina S.A.S. (Bucaramanga). Cada llave es un documento; sus campos son lo que un extractor sacaria de el. Faltan a proposito la garantia de seriedad y el Formato 3, y el certificado de camara esta vencido para el cierre.",
+  "constructora": {"nombre": "Constructora Andina S.A.S.", "nit": "900123456-7", "ciudad": "Bucaramanga"},
+  "documentos": {
+    "carta_presentacion": {"archivo": "Formato1_carta_presentacion.pdf", "firmada": true, "fecha": "2021-07-05"},
+    "tarjeta_profesional": {"archivo": "tarjeta_profesional_RL.pdf", "profesion": "Ingeniero Civil", "vigente": true, "fecha_certificado_vigencia": "2021-06-28"},
+    "rup": {
+      "archivo": "RUP_certificado.pdf", "fecha_expedicion": "2021-06-18", "vigente": true, "en_firme": true,
+      "contratos": [
+        {"consecutivo": 12, "objeto": "Pavimentación vía terciaria Girón – El Roble", "actividades": ["vias"], "valor_smmlv": 1240, "terminado": true},
+        {"consecutivo": 9, "objeto": "Adecuación y ampliación salón comunal barrio La Cumbre", "actividades": ["edificaciones"], "valor_smmlv": 640, "terminado": true},
+        {"consecutivo": 15, "objeto": "Aula múltiple I.E. San Isidro, Piedecuesta", "actividades": ["edificaciones"], "valor_smmlv": 890, "terminado": false},
+        {"consecutivo": 7, "objeto": "Parque lineal y andenes barrio Provenza", "actividades": ["espacio_publico"], "valor_smmlv": 380, "terminado": true},
+        {"consecutivo": 4, "objeto": "Adecuación puesto de salud El Centro", "actividades": ["edificaciones"], "valor_smmlv": 420, "terminado": true}
+      ]
+    },
+    "boletin_responsables_fiscales": {"archivo": "certificado_contraloria.pdf", "fecha": "2021-07-01", "reportado": false},
+    "camara_comercio": {"archivo": "certificado_camara_comercio.pdf", "fecha_expedicion": "2021-05-20", "objeto_social": "Construcción de edificaciones, obras civiles, vías, acueductos y alcantarillados; interventoría y consultoría de obras.", "duracion_hasta": "2035-12-31"},
+    "seguridad_social": {"archivo": "Formato6_seguridad_social.pdf", "fecha": "2021-07-02", "firmado_por": "revisor fiscal"},
+    "estados_financieros": {"archivo": "estados_financieros_2020.pdf", "corte": "2020-12-31",
+      "activo_corriente": 3100000000, "pasivo_corriente": 1720000000, "pasivo_total": 3900000000, "activo_total": 7100000000,
+      "utilidad_operacional": 510000000, "gastos_interes": 160000000, "patrimonio": 3200000000,
+      "liquidez": 1.80, "endeudamiento": 0.55, "cobertura_intereses": 3.19, "rentabilidad_patrimonio": 0.159, "rentabilidad_activo": 0.072},
+    "formato5_capacidad_residual": {"archivo": "Formato5_capacidad_residual.pdf", "capacidad_residual": 3800000000,
+      "contratos_en_ejecucion": [{"objeto": "Aula múltiple I.E. San Isidro", "saldo": 620000000}, {"objeto": "Mantenimiento vías Lebrija", "saldo": 410000000}]}
+  }
+}
