@@ -79,8 +79,9 @@ competidores probables con "ofrece al" y saturación → perfil de cada uno
   a mano, no ajustados.
 - Umbrales de las etiquetas: los de Plomada (p90 de proponente único
   ≈ 0,8 se relajó a 0,6 para entidades chicas); discutibles.
-- La carga inicial tarda ~5 s (67k filas a dicts en Python); en
-  producción esto es una tabla `pro_*` como las de `feature/serving-pro`.
+- La carga inicial tarda unos segundos (67k filas a dicts en Python) y se
+  hace en un hilo al arrancar; en producción esto es una tabla `pro_*`
+  como las de `feature/serving-pro`.
 - Snapshot 2026-08-22 tratado como "hoy".
 
 ## 6. Cómo probarlo
@@ -96,8 +97,8 @@ uvicorn pliego.radar.app:app --port 8040     # http://localhost:8040
 - `/competidor/829001805` (SOSDOM S.A.S): "está **cargado**: $9,6 mil
   mill. por ejecutar", ofrece al 92,4 %, 3 contratos vigentes.
 - `/proceso/CO1.REQ.10751505` (CTP Bucaramanga, $3.048 mill.): 10
-  competidores probables, SOSDOM primero (13 %) con "4 de esta familia ·
-  ganó 2 aquí", etiqueta Cargado.
+  competidores probables, EME ING primero ("ganó 4 aquí"), SOSDOM con
+  etiqueta Cargado.
 
 Regenerar fixtures: `python -m pliego.radar.semilla`.
 
