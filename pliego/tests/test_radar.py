@@ -56,6 +56,15 @@ def test_entidad_sin_muestra_o_inexistente():
     assert L.perfil_entidad(HIST, "999", HOY) is None
 
 
+def test_el_tipo_de_contrato_separa_quien_gana():
+    mezcla = HIST + [c(f"i{i}", "1", "I", "INTER SAS", tipo="INTERVENTORIA", ofer=6) for i in range(9)]
+    todo = L.perfil_entidad(mezcla, "1", HOY)
+    obra = L.perfil_entidad(mezcla, "1", HOY, tipo="OBRA")
+    assert todo["ganadores"][0]["doc"] == "I" and obra["ganadores"][0]["doc"] == "A"
+    top = L.competidores_probables(mezcla, {"nit_entidad": "1", "departamento": "SANTANDER", "familia": "7214", "tipo_contrato": "OBRA"}, HOY)
+    assert "I" not in {x["doc"] for x in top}
+
+
 def test_hhi_cuadra_con_las_shares():
     p = L.perfil_entidad(HIST, "1", HOY)
     assert p["hhi"] == pytest.approx(0.75 ** 2 + 0.25 ** 2)

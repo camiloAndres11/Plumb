@@ -48,11 +48,14 @@ def en_ejecucion(c: dict, hoy: date) -> bool:
 
 
 # --------------------------------------------------------------- entidad
-def perfil_entidad(contratos: list[dict], nit: str, hoy: date) -> dict | None:
+def perfil_entidad(contratos: list[dict], nit: str, hoy: date, tipo: str | None = None) -> dict | None:
+    """`tipo` (OBRA / INTERVENTORIA / CONSULTORIA) restringe 'quien gana' a
+    ese tipo de contrato: quien gana las interventorias de una entidad no
+    compite en sus obras."""
     mios = [c for c in contratos if c.get("nit_entidad") == nit]
     if not mios:
         return None
-    comp = [c for c in mios if competitivo(c)]
+    comp = [c for c in mios if competitivo(c) and (tipo is None or c.get("tipo_contrato") == tipo)]
     por_prov: dict[str, list[dict]] = defaultdict(list)
     for c in comp:
         por_prov[c["doc_proveedor"]].append(c)
@@ -62,7 +65,7 @@ def perfil_entidad(contratos: list[dict], nit: str, hoy: date) -> dict | None:
         ganadores.append({
             "doc": doc, "nombre": cs[-1].get("proveedor"), "n": len(cs), "share": len(cs) / n if n else 0,
             "valor": sum(c.get("valor_plausible") or 0 for c in cs),
-            "mediana_ratio": _mediana([c.get("ratio") for c in cs if c.get("ratio")]),
+            "mediana_ratio": _mediana([c["ratio"] for c in cs if c.get("ratio") and 0.5 <= c["ratio"] <= 1.2]),
             "ultimo_anio": max((_anio(c) or 0) for c in cs),
             "es_grupo": any(str(c.get("es_grupo")).upper() == "SI" for c in cs),
         })
@@ -87,7 +90,8 @@ def perfil_entidad(contratos: list[dict], nit: str, hoy: date) -> dict | None:
     por_anio = Counter(_anio(c) for c in comp if _anio(c))
     modalidades = Counter(c.get("modalidad") for c in mios)
     return {
-        "nit": nit, "entidad": mios[-1].get("entidad"), "departamento": mios[-1].get("departamento"),
+        "nit": nit, "tipo": tipo, "entidad": mios[-1].get("entidad"), "departamento": mios[-1].get("departamento"),
+        "por_tipo": Counter(c.get("tipo_contrato") for c in mios if competitivo(c)).most_common(),
         "ciudad": mios[-1].get("ciudad"), "orden": mios[-1].get("orden"),
         "n_contratos": len(mios), "n_competitivos": n, "valor_total": sum(c.get("valor_plausible") or 0 for c in mios),
         "n_proveedores": len(por_prov), "ganadores": ganadores[:10],
@@ -155,11 +159,12 @@ def competidores_probables(contratos: list[dict], proceso: dict, hoy: date, n: i
     'probabilidad de que se presente' -- es un orden, no una probabilidad
     calibrada, y asi se rotula."""
     nit, dep, fam = proceso.get("nit_entidad"), proceso.get("departamento"), proceso.get("familia")
+    tipo = proceso.get("tipo_contrato")
     puntos: dict[str, float] = defaultdict(float)
     razones: dict[str, Counter] = defaultdict(Counter)
     nombres: dict[str, str] = {}
     for c in contratos:
-        if not competitivo(c):
+        if not competitivo(c) or (tipo and c.get("tipo_contrato") != tipo):
             continue
         doc = c["doc_proveedor"]
         a = _anio(c)

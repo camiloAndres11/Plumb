@@ -54,8 +54,8 @@ def _por_proveedor() -> dict[str, list[dict]]:
 
 
 @lru_cache(maxsize=512)
-def entidad(nit: str) -> dict | None:
-    return logica.perfil_entidad(_por_entidad().get(nit, []), nit, HOY)
+def entidad(nit: str, tipo: str | None = "OBRA") -> dict | None:
+    return logica.perfil_entidad(_por_entidad().get(nit, []), nit, HOY, tipo)
 
 
 @lru_cache(maxsize=512)
