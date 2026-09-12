@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; background: #0b0b0d; color: #f2f0ee; font-family: "Archivo", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #f2f0ee; text-decoration: none; } a:hover { color: #ffffff; }
+    .num { font-variant-numeric: tabular-nums; }
+  </style>
+</helmet>
+<div style="width: 1440px; height: 1080px; display: grid; grid-template-columns: 230px minmax(0, 1fr); background: #121214; overflow: hidden;">
+  <div style="display: flex; flex-direction: column; gap: 6px; padding: 22px 18px; border-right: 1px solid rgba(255,255,255,.08); background: #121214;">
+    <div style="display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; letter-spacing: -0.03em; margin-bottom: 22px;"><span style="display: inline-flex; flex-direction: column; justify-content: center; gap: 3px; width: 22px; height: 22px; padding: 4px; border-radius: 6px; background: #f2f0ee; box-sizing: border-box;"><span style="height: 2.5px; width: 14px; border-radius: 2px; background: #ec3013;"></span><span style="height: 2.5px; width: 9px; border-radius: 2px; background: #0b0b0d;"></span><span style="height: 2.5px; width: 5px; border-radius: 2px; background: #0b0b0d;"></span></span>Pliego.</div>
+    <div style="display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; font-size: 14px; color: #f2f0ee; background: rgba(255,255,255,.07);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>Checklist del pliego</div>
+    <div style="display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; font-size: 14px; color: rgba(242,240,238,.75);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6M8 13h8M8 17h6"></path></svg>Mi carpeta</div>
+  </div>
+  <div style="position: relative; padding: 30px 36px; overflow: hidden; background: #121214; display: flex; flex-direction: column; gap: 18px;">
+    <div style="font-size: 13px; color: rgba(242,240,238,.55); display: flex; gap: 8px;"><a href="#">Checklist del pliego</a><span>/</span><span>Grupo 1</span><span>/</span><span style="color: rgba(242,240,238,.85);">Capacidad residual · p. 37</span></div>
+    <div style="display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 24px; align-items: start; min-height: 0;">
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="padding: 24px 28px; border-radius: 18px; background: rgba(20,20,23,.9); border: 1px solid rgba(255,255,255,.1);">
+          <div style="font-size: 13px; color: rgba(242,240,238,.55);">Requisito técnico · sección 3.10</div>
+          <div style="font-size: 20px; font-weight: 600; letter-spacing: -0.02em; margin-top: 8px; line-height: 1.25;">Capacidad residual del proponente ≥ capacidad residual del proceso (presupuesto − anticipo)</div>
+          <div style="display: flex; align-items: center; gap: 12px; margin-top: 16px;"><span style="flex: none; width: 18px; height: 18px; border-radius: 50%; background: #ec3013; display: inline-flex; align-items: center; justify-content: center; margin-top: 2px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M20 6 9 17l-5-5"></path></svg></span><span style="padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: rgba(255,255,255,.08); color: rgba(242,240,238,.85);">Cumple</span></div>
+          <div style="font-size: 15px; margin-top: 14px; line-height: 1.5;">CRP = <b class="num">$3.800 mill.</b> ≥ CRPC = <b class="num">$369 mill.</b> (presupuesto del Grupo 1 menos el anticipo del 50 %).</div>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 16px;">
+            <div style="padding: 12px 14px; border-radius: 12px; background: rgba(255,255,255,.05);"><div style="font-size: 12px; color: rgba(242,240,238,.55);">Presupuesto del lote</div><div class="num" style="font-size: 18px; font-weight: 600; margin-top: 4px;">$737.745.546</div></div>
+            <div style="padding: 12px 14px; border-radius: 12px; background: rgba(255,255,255,.05);"><div style="font-size: 12px; color: rgba(242,240,238,.55);">Anticipo (sección 8.3)</div><div class="num" style="font-size: 18px; font-weight: 600; margin-top: 4px;">50 %</div></div>
+          </div>
+          <div style="font-size: 13px; color: rgba(242,240,238,.55); margin-top: 14px;">Fuente del dato: Formato5_capacidad_residual.pdf de su carpeta.</div>
+        </div>
+        <div style="padding: 20px 24px; border-radius: 18px; background: #f2f0ee; color: #1a1a1c;">
+          <div style="font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: #8a8580;">Fragmento del pliego · p. 37</div>
+          <p style="margin: 10px 0 0; font-size: 15px; line-height: 1.55;">«El proponente será hábil si su capacidad residual es mayor o igual a la capacidad residual de proceso de contratación (CRPC).»</p>
+        </div>
+        <div style="display: flex; gap: 10px;"><a href="#" style="display: inline-flex; align-items: center; padding: 11px 20px; border-radius: 999px; background: #f2f0ee; color: #0b0b0d; font-size: 14px; font-weight: 500;">Abrir el PDF completo</a><a href="#" style="display: inline-flex; align-items: center; padding: 11px 20px; border-radius: 999px; border: 1px solid rgba(255,255,255,.2); font-size: 14px; font-weight: 500;">Siguiente requisito →</a></div>
+      </div>
+      <div style="position: relative; border-radius: 18px; overflow: hidden; border: 1px solid rgba(255,255,255,.1); background: #17171a; padding: 18px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: rgba(242,240,238,.55); margin-bottom: 12px;"><span>pliego_SI-LP-004-2021.pdf · página 37 de 66</span><span style="display: flex; gap: 6px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.15);"></span><span style="width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.15);"></span><span style="width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.15);"></span></span></div>
+        <div style="position: relative; width: 612px; margin: 0 auto; box-shadow: 0 30px 80px rgba(0,0,0,.5);">
+          <img src="p37.jpg" alt="Página 37 del pliego" style="display: block; width: 612px; height: 792px;">
+          <div style="position: absolute; left: 13.91%; top: 63.51%; width: 72.1%; height: 1.4%; background: rgba(236,48,19,.35); border-radius: 2px; outline: 2px solid rgba(236,48,19,.6);"></div>
+          <div style="position: absolute; left: 13.91%; top: 65.08%; width: 17.76%; height: 1.4%; background: rgba(236,48,19,.35); border-radius: 2px; outline: 2px solid rgba(236,48,19,.6);"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

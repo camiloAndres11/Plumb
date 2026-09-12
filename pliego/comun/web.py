@@ -84,7 +84,7 @@ def sidebar(items: list[tuple[str, str, str]], actual: str, pie: str = "") -> st
     return f'<aside class="side">{LOGO}{lis}{pie}</aside>'
 
 
-def pagina(titulo: str, cuerpo: str, side: str, js: str = "") -> str:
+def pagina(titulo: str, cuerpo: str, side: str, extra_head: str = "", js: str = "") -> str:
     return f"""<!doctype html>
 <html lang="es">
 <meta charset="utf-8">
@@ -92,6 +92,7 @@ def pagina(titulo: str, cuerpo: str, side: str, js: str = "") -> str:
 <title>{h(titulo)} — Pliego</title>
 <meta name="theme-color" content="#0b0b0d">
 <link rel="stylesheet" href="/static/base.css">
+{extra_head}
 <body>
 <div class="app">
 {side}
