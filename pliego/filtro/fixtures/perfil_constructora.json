@@ -1,0 +1,41 @@
+{
+  "_nota": "Perfil FICTICIO de una constructora mediana, coherente con el que muestra la landing de Pliego. No existe en el RUP. Los valores estan en COP salvo donde se indica.",
+  "nombre": "Constructora Andina S.A.S.",
+  "nit": "900123456-7",
+  "sede": {"ciudad": "BUCARAMANGA", "departamento": "SANTANDER"},
+  "departamentos_interes": ["SANTANDER", "BOYACA", "NORTE DE SANTANDER"],
+  "rup": {"vigente": true, "renovado": "2026-04-30"},
+  "unspsc": [
+    "V1.72141000", "V1.72141100", "V1.72141003",
+    "V1.72121400", "V1.72101500", "V1.72101507", "V1.72102900",
+    "V1.72151800", "V1.72151900"
+  ],
+  "experiencia": [
+    {"objeto": "Pavimentacion via terciaria Giron - El Roble", "entidad": "ALCALDIA DE GIRON",
+     "unspsc": "V1.72141000", "valor_smmlv": 1240, "anio": 2024, "liquidado": true},
+    {"objeto": "Placa huella veredas La Mesa y Chocoa", "entidad": "ALCALDIA DE GIRON",
+     "unspsc": "V1.72141100", "valor_smmlv": 610, "anio": 2023, "liquidado": true},
+    {"objeto": "Mejoramiento via Barbosa - Velez", "entidad": "GOBERNACION DE SANTANDER",
+     "unspsc": "V1.72141000", "valor_smmlv": 1780, "anio": 2023, "liquidado": true},
+    {"objeto": "Aula multiple I.E. San Isidro", "entidad": "ALCALDIA DE PIEDECUESTA",
+     "unspsc": "V1.72121400", "valor_smmlv": 890, "anio": 2025, "liquidado": false},
+    {"objeto": "Adecuacion puesto de salud El Centro", "entidad": "GOBERNACION DE SANTANDER",
+     "unspsc": "V1.72101500", "valor_smmlv": 420, "anio": 2022, "liquidado": true},
+    {"objeto": "Acueducto veredal Llanito fase I", "entidad": "ESP BARRANCABERMEJA",
+     "unspsc": "V1.72151800", "valor_smmlv": 560, "anio": 2022, "liquidado": true}
+  ],
+  "financiero": {
+    "liquidez": 1.8,
+    "endeudamiento": 0.55,
+    "cobertura_intereses": 3.2,
+    "patrimonio": 4200000000,
+    "capital_trabajo": 1900000000
+  },
+  "organizacional": {
+    "rentabilidad_patrimonio": 0.12,
+    "rentabilidad_activo": 0.06
+  },
+  "capacidad_residual": 3800000000,
+  "contratos_en_ejecucion": 2,
+  "cuantia_objetivo": {"min": 500000000, "max": 3000000000}
+}
