@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+import threading
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -25,7 +26,21 @@ app.mount("/static", StaticFiles(directory=str(W.STATIC)), name="static")
 MODALIDAD_CORTA = {"LICITACION PUBLICA OBRA PUBLICA": "Licitación pública",
                    "SELECCION ABREVIADA DE MENOR CUANTIA": "Selección abreviada"}
 TRAZO = {"mediana": "", "geometrica": "6 4", "aritmetica_baja": "2 3", "menor_valor": "10 4 2 4"}
-BACKTEST_N, BACKTEST_SIM = 40, 120
+BACKTEST_N, BACKTEST_SIM = 40, 80
+
+
+def _precalentar():
+    """El backtest tarda unos segundos la primera vez; se calcula en un hilo
+    al arrancar para que la pagina responda al instante. Va aqui y no en
+    el lifespan porque Starlette no propaga el lifespan de una app montada
+    (la demo del equipo monta esta app bajo /simulador)."""
+    try:
+        datos.backtest(VERSION_DEFECTO, BACKTEST_N, BACKTEST_SIM)
+    except Exception:   # nunca tumbar el servicio por precalentar
+        pass
+
+
+threading.Thread(target=_precalentar, daemon=True).start()
 
 EXTRA_CSS = """<style>
 .dos { display: grid; grid-template-columns: 300px minmax(0,1fr); gap: 24px; align-items: start; }

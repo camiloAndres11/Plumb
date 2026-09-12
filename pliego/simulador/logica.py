@@ -168,13 +168,16 @@ def backtest(historico: list[dict], version: Version, n_procesos: int = 40, n_si
     La segunda es la mas honesta que permite el dato publico: no conocemos
     las ofertas perdedoras, pero si la que gano, y contra esa nos medimos."""
     rng = rng or random.Random(11)
+    # Malla mas gruesa que en la recomendacion (paso 1 % en vez de 0,5 %):
+    # el backtest corre 40 recomendaciones y con la fina tardaba ~15 s.
+    malla = [round(0.85 + i * 0.01, 2) for i in range(16)]
     candidatos = [h for h in historico if (h.get("n_oferentes_unicos") or 0) >= min_oferentes
                   and h.get("fecha_firma")]
     candidatos = sorted(candidatos, key=lambda h: str(h["fecha_firma"]))[-n_procesos:]
     resultados = []
     for h in candidatos:
         pool = armar_pool(historico, h, excluir_id=h["id_contrato"])
-        rec = recomendar(pool, version, n_sim=n_sim, rng=rng)
+        rec = recomendar(pool, version, n_sim=n_sim, rng=rng, malla=malla)
         escenarios = simular_escenarios(pool, n_sim, rng)
         gana = 0.0
         for comp in escenarios:
