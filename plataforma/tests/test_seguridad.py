@@ -65,3 +65,13 @@ def test_ip_cliente_toma_el_salto_del_proxy_no_el_del_cliente():
     # Cabecera corta o ausente: socket.
     assert S.ip_cliente(_Peticion("10.0.0.5", None), proxies=1) == "10.0.0.5"
     assert S.ip_cliente(_Peticion("10.0.0.5", "200.1.1.1"), proxies=2) == "10.0.0.5"
+
+
+def test_el_log_de_acceso_no_lleva_tokens():
+    from plataforma.app import ruta_para_log
+    assert ruta_para_log("/restablecer/AbC-123_xyz") == "/restablecer/<token>"
+    assert ruta_para_log("/verificar/t0k3n") == "/verificar/<token>"
+    assert ruta_para_log("/invitacion/t0k3n") == "/invitacion/<token>"
+    assert ruta_para_log("/verificar") == "/verificar"
+    assert ruta_para_log("/verificar/reenviar") == "/verificar/<token>"   # ruta fija, pero mejor de mas que de menos
+    assert ruta_para_log("/pliegos/12/usar") == "/pliegos/12/usar"

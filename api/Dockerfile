@@ -4,6 +4,9 @@ WORKDIR /app
 COPY api/requirements.txt ./requirements.txt
 RUN pip install -r requirements.txt
 COPY api/app/ ./app/
+# Usuario sin privilegios (mismo criterio que plataforma/Dockerfile).
+RUN useradd --uid 10001 --create-home --shell /usr/sbin/nologin app && chown -R app:app /app
+USER app
 EXPOSE 8000
 # Render inyecta $PORT; en local cae a 8000
 # --proxy-headers/--forwarded-allow-ips: Render termina TLS en su proxy y

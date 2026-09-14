@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import time
 from contextlib import asynccontextmanager
 
@@ -65,6 +66,16 @@ app.mount("/static", EstaticosDeDos(), name="static")
 app.middleware("http")(sesiones.cargar)
 
 
+# Los tokens de un uso (verificar, restablecer, invitacion) viajan en el
+# path; un token de reset vale lo que la contrasena durante una hora, y no
+# puede quedar en claro en un log que lee soporte o un agregador.
+_TOKEN_EN_PATH = re.compile(r"^(/(?:verificar|restablecer|invitacion)/)[^/?#]+")
+
+
+def ruta_para_log(path: str) -> str:
+    return _TOKEN_EN_PATH.sub(r"\1<token>", path)
+
+
 @app.middleware("http")
 async def _acceso(request: Request, call_next):
     """Una linea por peticion con usuario y empresa: es lo que hay que
@@ -73,8 +84,8 @@ async def _acceso(request: Request, call_next):
     respuesta = await call_next(request)
     if not request.url.path.startswith("/static"):
         u, e = getattr(request.state, "usuario", None), getattr(request.state, "empresa", None)
-        acceso.info("%s %s %s %dms usuario=%s empresa=%s", request.method, request.url.path, respuesta.status_code,
-                    (time.monotonic() - t0) * 1000, u["id"] if u else "-", e["id"] if e else "-")
+        acceso.info("%s %s %s %dms usuario=%s empresa=%s", request.method, ruta_para_log(request.url.path),
+                    respuesta.status_code, (time.monotonic() - t0) * 1000, u["id"] if u else "-", e["id"] if e else "-")
     return respuesta
 
 
