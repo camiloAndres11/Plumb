@@ -1,0 +1,13 @@
+# Plataforma Pliego (plataforma/). Rangos como en api/requirements.txt.
+fastapi>=0.115,<1
+uvicorn[standard]>=0.32,<1
+pydantic>=2.9,<3
+pydantic-settings>=2.6,<3
+psycopg[binary,pool]>=3.2,<4
+argon2-cffi>=23,<26
+itsdangerous>=2.2,<3
+python-multipart>=0.0.12,<1
+# Los enfoques (pliego/) y la fuente de datos (Croma -> DuckDB):
+duckdb>=1.4,<2
+pyarrow>=17
+requests>=2.32,<3

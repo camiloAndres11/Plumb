@@ -18,3 +18,7 @@ Contexto unico: `CONTEXT.md` y `docs/adr/` en la raiz. See `docs/agents/domain.m
 ### Flujo de ramas
 
 `main` intocable <- `dev` <- rama personal (`rarechimera87`) <- `feature/*`. See `docs/agents/flujo-ramas.md`.
+
+### Plataforma
+
+Pliego para empresas reales (cuentas, perfil, datos por empresa) en `plataforma/`, puerto 8100; la demo sigue en 8000. See `docs/enfoques/plataforma.md`.
