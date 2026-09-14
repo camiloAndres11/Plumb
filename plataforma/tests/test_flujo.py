@@ -270,7 +270,8 @@ def test_admin_solo_para_plataforma_admins(cliente):
         r = cliente.get("/admin")
         assert r.status_code == 200 and "Admin Prueba" in r.text and "Descargas por departamento" in r.text
         assert 'href="/admin"' in cliente.get("/panel").text
-        assert cliente.get("/health").json()["trabajos"] is False   # sin llaves no arrancan los hilos
+        assert cliente.get("/admin/estado").json()["trabajos"] is False   # sin llaves no arrancan los hilos
+        assert set(cliente.get("/health").json()) == {"ok", "version"}  # /health ya no cuenta nada mas
     finally:
         C.config.plataforma_admins = original
     db.ejecutar("DELETE FROM pliego.empresas WHERE nit = %s", [nit])

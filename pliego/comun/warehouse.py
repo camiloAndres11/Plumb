@@ -225,10 +225,14 @@ def consultar(sql: str, ambito: tuple[str, ...]) -> list[dict]:
 
 
 def _vistas(cur, ambito: tuple[str, ...]) -> None:
-    lista = ", ".join("'" + d.replace("'", "''") + "'" for d in ambito) or "''"
+    """Las vistas por empresa son la frontera entre tenants: los
+    departamentos entran como una tabla registrada en el cursor, no
+    concatenados en el SQL (DuckDB no admite parametros en CREATE VIEW).
+    Sin departamentos, la tabla esta vacia y no casa con nada."""
+    cur.register("_ambito", pa.Table.from_pylist([{"d": d} for d in ambito], schema=pa.schema([("d", pa.string())])))
     for nombre in ("base", "procesos", "abiertos", "alertas"):
         cur.execute(f"CREATE OR REPLACE TEMP VIEW {nombre} AS SELECT * FROM {nombre}_todo "
-                    f"WHERE departamento_descarga IN ({lista})")
+                    f"WHERE departamento_descarga IN (SELECT d FROM _ambito)")
 
 
 def estado(ambito: tuple[str, ...] = ()) -> dict:

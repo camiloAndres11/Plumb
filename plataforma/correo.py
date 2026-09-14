@@ -12,7 +12,9 @@ Sin SDKs: funciona con Resend, Postmark, SES, Gmail o lo que se contrate.
 """
 from __future__ import annotations
 
+import html as _html
 import logging
+import re
 import smtplib
 from email.message import EmailMessage
 from urllib.parse import parse_qs, unquote, urlparse
@@ -23,7 +25,14 @@ log = logging.getLogger("pliego.correo")
 enviados: list[dict] = []   # solo en modo consola
 
 
+def _limpio(s: str, tope: int = 200) -> str:
+    """Texto que escribio un usuario (nombre, empresa) antes de entrar en un
+    asunto o una plantilla: sin saltos de linea (cabeceras) y con tope."""
+    return re.sub(r"[\r\n\t]+", " ", str(s or "")).strip()[:tope]
+
+
 def enviar(destinatario: str, asunto: str, html: str, texto: str) -> None:
+    asunto = _limpio(asunto, 250)
     if not config.smtp_url:
         enviados.append({"a": destinatario, "asunto": asunto, "texto": texto, "html": html})
         # warning, no info: sin SMTP el enlace tiene que verse en el log de
@@ -51,13 +60,18 @@ def enviar(destinatario: str, asunto: str, html: str, texto: str) -> None:
 
 # ------------------------------------------------------------ plantillas
 def _plantilla(titulo: str, parrafos: list[str], enlace: str, boton: str) -> tuple[str, str]:
+    """El titulo y los parrafos llevan texto escrito por usuarios (nombres,
+    empresas): se escapan. Un nombre de empresa con un <a> adentro llegaba
+    como enlace clicable desde el remitente legitimo de Pliego."""
+    titulo, parrafos, boton = _limpio(titulo), [_limpio(p, 500) for p in parrafos], _limpio(boton, 60)
     texto = f"{titulo}\n\n" + "\n\n".join(parrafos) + f"\n\n{boton}: {enlace}\n\n— Pliego"
-    ps = "".join(f'<p style="margin:0 0 14px;color:#444;font-size:15px;line-height:1.5">{p}</p>' for p in parrafos)
+    h = _html.escape
+    ps = "".join(f'<p style="margin:0 0 14px;color:#444;font-size:15px;line-height:1.5">{h(p)}</p>' for p in parrafos)
     html = f"""<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px 24px">
 <div style="font-weight:600;font-size:18px;margin-bottom:24px">Pliego.</div>
-<h1 style="font-size:22px;font-weight:500;margin:0 0 18px">{titulo}</h1>{ps}
-<p style="margin:24px 0"><a href="{enlace}" style="display:inline-block;padding:12px 20px;background:#111;color:#fff;border-radius:10px;text-decoration:none;font-size:15px">{boton}</a></p>
-<p style="color:#888;font-size:13px">Si el botón no funciona, copie este enlace: <br><a href="{enlace}" style="color:#888">{enlace}</a></p>
+<h1 style="font-size:22px;font-weight:500;margin:0 0 18px">{h(titulo)}</h1>{ps}
+<p style="margin:24px 0"><a href="{h(enlace)}" style="display:inline-block;padding:12px 20px;background:#111;color:#fff;border-radius:10px;text-decoration:none;font-size:15px">{h(boton)}</a></p>
+<p style="color:#888;font-size:13px">Si el botón no funciona, copie este enlace: <br><a href="{h(enlace)}" style="color:#888">{h(enlace)}</a></p>
 </div>"""
     return html, texto
 

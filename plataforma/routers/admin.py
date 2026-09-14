@@ -87,6 +87,13 @@ def admin(request: Request, usuario: dict = Depends(requiere_plataforma_admin)):
     return V.privada("Admin", cuerpo, "/admin", usuario, request.state.empresa, token)
 
 
+@router.get("/admin/estado")
+def estado(request: Request, usuario: dict = Depends(requiere_plataforma_admin)):
+    """El estado detallado del servicio (lo que /health ya no cuenta)."""
+    from plataforma.app import estado_detallado
+    return estado_detallado()
+
+
 @router.post("/admin/descargar")
 def descargar(request: Request, usuario: dict = Depends(requiere_plataforma_admin), _: None = Depends(sesiones.csrf),
               departamento: str = Form(...)):

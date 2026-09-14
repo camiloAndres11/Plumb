@@ -90,3 +90,13 @@ def test_cabeceras_de_seguridad_y_cookie_de_login():
         c.cookies.clear()
         r = c.post("/login", data={"email": "a@b.co", "clave": "x" * 12})
         assert r.status_code == 403
+
+
+def test_los_correos_escapan_lo_que_escribe_el_usuario(monkeypatch):
+    from plataforma import correo
+    correo.enviados.clear()
+    correo.invitacion("x@ejemplo.test", 'Constructora <a href="https://phishing">Verificar</a>', "Ana\r\nBcc: otro", "https://pliego.test/invitacion/t")
+    m = correo.enviados[-1]
+    assert "<a href=\"https://phishing\">" not in m["html"] and "&lt;a href=" in m["html"]
+    assert "\r" not in m["asunto"] and "\n" not in m["asunto"]
+    correo.enviados.clear()

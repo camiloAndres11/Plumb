@@ -156,8 +156,10 @@ def cambiar_nombre(usuario_id: int, nombre: str) -> None:
 
 # ----------------------------------------------------------------- equipo
 def invitar(empresa: dict, invita: dict, email: str, rol: str) -> str | None:
-    """Emite la invitacion y manda el correo. None si ese email ya es
-    usuario (de esta o de otra empresa: un email es una sola cuenta)."""
+    """Emite la invitacion y manda el correo. Si ese email ya es usuario (de
+    esta o de otra empresa: un email es una sola cuenta) no se emite nada y
+    se devuelve None; el router responde IGUAL en ambos casos, para que
+    /invitar no sirva para enumerar que correos son clientes."""
     email = email.lower()
     if usuario_por_email(email):
         return None

@@ -111,8 +111,10 @@ async def _acceso(request: Request, call_next):
     return respuesta
 
 
-@app.get("/health")
-def health():
+def estado_detallado() -> dict:
+    """Lo que antes devolvia /health a cualquiera: rutas en disco, errores de
+    Postgres, ids de pliegos en cola, que llaves hay. Es reconocimiento
+    gratis; ahora solo lo ve /admin."""
     ok, detalle = db.disponible()
     try:
         wh = warehouse.estado()
@@ -123,10 +125,17 @@ def health():
     if ok:
         fila = db.uno("SELECT max(ultima_ok) AS u FROM pliego.descargas_departamento")
         ultimo = fila["u"].isoformat() if fila and fila["u"] else None
-    return JSONResponse({"ok": ok, "version": VERSION, "postgres": detalle, "warehouse": wh_detalle,
-                         "cola": trabajos.en_cola(), "ultimo_refresco": ultimo, "trabajos": bool(trabajos._hilos),
-                         "croma": croma.disponible(), "extraccion": extraccion.disponible(),
-                         "secret_key": bool(config.secret_key)}, status_code=200 if ok else 503)
+    return {"ok": ok, "version": VERSION, "postgres": detalle, "warehouse": wh_detalle,
+            "cola": trabajos.en_cola(), "ultimo_refresco": ultimo, "trabajos": bool(trabajos._hilos),
+            "croma": croma.disponible(), "extraccion": extraccion.disponible(),
+            "secret_key": bool(config.secret_key)}
+
+
+@app.get("/health")
+def health():
+    """Para el health check del hosting: solo si la base responde."""
+    ok, _ = db.disponible()
+    return JSONResponse({"ok": ok, "version": VERSION}, status_code=200 if ok else 503)
 
 
 @app.exception_handler(sesiones.Redirigir)

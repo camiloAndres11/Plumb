@@ -73,7 +73,7 @@ def registro(request: Request):
 @router.post("/registro", response_class=HTMLResponse)
 def registrar(request: Request, empresa: str = Form(""), nit: str = Form(""), nombre: str = Form(""),
               email: str = Form(""), clave: str = Form(""), acepta: str = Form("")):
-    valores = {"empresa": empresa.strip(), "nit": nit.strip(), "nombre": nombre.strip(), "email": email.strip()}
+    valores = {"empresa": empresa.strip()[:200], "nit": nit.strip()[:30], "nombre": nombre.strip()[:120], "email": email.strip()[:254]}
     if not seguridad.permitir("registro:ip:" + _ip(request), 5, 3600):
         return V.publica("Crear cuenta", _form_registro(valores, "Demasiados intentos desde esta red. Espere una hora."))
     e = seguridad.email_valido(email)
@@ -261,9 +261,10 @@ def aceptar(request: Request, token: str, nombre: str = Form(""), clave: str = F
         or seguridad.validar_contrasena(clave, t["email"])
     if error:
         return V.publica("Invitación", _form_invitacion(token, t, error))
-    usuario = cuentas.aceptar_invitacion(token, nombre.strip(), clave)
+    usuario = cuentas.aceptar_invitacion(token, nombre.strip()[:120], clave)
     if not usuario:
-        return sesiones.redirigir("/login?error=" + quote("Ese correo ya tiene una cuenta. Ingrese con ella."))
+        # Mismo mensaje que una invitacion vencida: no se revela que el correo ya es cuenta.
+        return sesiones.redirigir("/login?error=" + quote("La invitación no es válida o venció. Si ya tiene cuenta, ingrese con ella."))
     sid, _ = sesiones.crear(usuario["id"], request)
     respuesta = sesiones.redirigir("/panel?ok=" + quote("Bienvenido. Ya hace parte del equipo."))
     sesiones.poner_cookie(respuesta, sid, request)
