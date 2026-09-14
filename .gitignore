@@ -4,6 +4,7 @@
 data/raw/
 data/warehouse/
 data/exports/
+data/cache/
 out/
 out_web/
 __pycache__/

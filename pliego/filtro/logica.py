@@ -221,7 +221,7 @@ def senales(perfil: dict, proceso: dict, historial: dict | None,
                 False, {"share_top1": share, "familia": hist_familia.get("familia")})
 
     # Pliego con requisitos muy especificos (proxy: el codigo casi no se usa)
-    if frecuencia_codigo is not None and proceso.get("unspsc", "").startswith("V1.") \
+    if frecuencia_codigo is not None and str(proceso.get("unspsc") or "").startswith("V1.") \
             and frecuencia_codigo < R.CODIGO_RARO_N:
         add("codigo_raro", "El codigo UNSPSC del proceso aparece solo %d veces en todo el historico: "
             "revise si el pliego pide una experiencia a la medida." % frecuencia_codigo, False,
