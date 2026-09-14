@@ -1,4 +1,4 @@
-# Dev local: docker compose up  ->  API en :8000, Postgres en :5432
+# Dev local: docker compose up  ->  API en :8000, plataforma en :8100, Postgres en :5432
 services:
   db:
     image: postgres:16-alpine
@@ -24,6 +24,23 @@ services:
     depends_on:
       db: { condition: service_healthy }
 
+  # Plataforma Pliego (cuentas + enfoques sobre Croma). Ver plataforma/app.py.
+  plataforma:
+    build: { context: ., dockerfile: plataforma/Dockerfile }
+    environment:
+      DATABASE_URL: postgresql://plomada:plomada@db:5432/plomada
+      BASE_URL: http://localhost:8100
+      SECRET_KEY: ${SECRET_KEY:-solo-para-desarrollo-cambiar-en-produccion}
+      SMTP_URL: ${SMTP_URL:-}
+      PLATAFORMA_ADMINS: ${PLATAFORMA_ADMINS:-}
+      PLIEGO_FUENTE: warehouse
+      CROMA_API_KEY: ${CROMA_API_KEY:-}
+      PLATAFORMA_DATOS: /app/data
+    volumes: ["pliego_datos:/app/data"]
+    ports: ["8100:8100"]
+    depends_on:
+      db: { condition: service_healthy }
+
   # Perfil aparte: no arranca con 'up', se invoca explicitamente.
   #   docker compose run --rm pipeline python pipeline/ingest.py
   pipeline:
@@ -37,3 +54,4 @@ services:
 
 volumes:
   pgdata:
+  pliego_datos:

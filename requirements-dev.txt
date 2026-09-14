@@ -1,3 +1,4 @@
 -r pipeline/requirements.txt
+-r plataforma/requirements.txt
 pytest>=8
 ruff>=0.7
