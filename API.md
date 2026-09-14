@@ -13,7 +13,7 @@ ya son públicos.
 
 - **Referencia interactiva (OpenAPI):** `GET /docs` · `GET /redoc` · `GET /openapi.json`
 - **Índice de endpoints:** `GET /v1`
-- **Código y metodología:** [README.md](README.md)
+- **Código y metodología:** [docs/PLOMADA.md](docs/PLOMADA.md)
 - **Capa conversacional (MCP + Claude):** [MCP.md](MCP.md)
 
 ---
