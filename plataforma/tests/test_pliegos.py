@@ -189,3 +189,24 @@ def test_subir_extraer_y_usar_en_checklist_y_generador(tmp_path, monkeypatch):
         assert "ok=" in r.headers["location"] and not (tmp_path / fila["ruta_pdf"]).exists()
         db.ejecutar("DELETE FROM pliego.empresas WHERE nit = %s", [nit])
     shutil.rmtree(tmp_path / "pliegos", ignore_errors=True)
+
+
+def test_extraer_rechaza_por_paginas_antes_de_llamar_a_claude(tmp_path):
+    """El tope de paginas se aplica ANTES de la llamada: un PDF enorme no
+    gasta ni un token."""
+    if not shutil.which("pdfinfo"):
+        pytest.skip("sin poppler no se cuentan paginas")
+    cliente = ClienteFalso(_tool_input())
+    with pytest.raises(X.DemasiadasPaginas):
+        X.extraer(PDF.read_bytes(), PDF.name, cliente=cliente, max_paginas=10)
+    assert cliente.llamadas == []
+    # Con tope holgado si llama.
+    X.extraer(PDF.read_bytes(), PDF.name, cliente=cliente, max_paginas=500)
+    assert len(cliente.llamadas) == 1
+
+
+def test_el_cliente_de_anthropic_se_puede_construir(monkeypatch):
+    """La dependencia esta en plataforma/requirements.txt: sin ella, en el
+    contenedor la extraccion moria con ImportError al poner la llave."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-prueba")
+    assert X._cliente() is not None

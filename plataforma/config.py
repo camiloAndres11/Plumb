@@ -45,6 +45,11 @@ class Config(BaseSettings):
     # la del socket y la cabecera se ignora. Solo para despliegues sin esa
     # capa (p. ej. detras de un proxy con IP publica).
     proxies_confiables: int = 0
+    # Topes de la extraccion de pliegos con Claude, que paga la plataforma:
+    # paginas maximas por PDF (se cuentan ANTES de llamar) y presupuesto en
+    # USD por empresa y mes calendario (suma de costo_usd de sus pliegos).
+    pliego_max_paginas: int = 300
+    pliego_presupuesto_usd_mes: float = 25.0
 
     @property
     def dsn(self) -> str:

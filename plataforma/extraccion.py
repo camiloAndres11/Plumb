@@ -236,14 +236,23 @@ def citas_y_paginas(pdf_ruta: Path, requisitos_json: dict, destino: Path) -> dic
 
 
 # ------------------------------------------------------------------ todo
-def extraer(pdf: bytes, nombre: str, carpeta_paginas: Path | None = None, cliente=None) -> dict:
+class DemasiadasPaginas(ExtraccionError):
+    pass
+
+
+def extraer(pdf: bytes, nombre: str, carpeta_paginas: Path | None = None, cliente=None,
+            max_paginas: int | None = None) -> dict:
     """PDF -> {requisitos, extraccion, citas_bbox, paginas, costo_usd, uso}.
-    Escribe las paginas PNG en carpeta_paginas si se da."""
-    tool_input, uso = llamar_claude(pdf, cliente)
+    Escribe las paginas PNG en carpeta_paginas si se da. Cuenta las paginas
+    ANTES de llamar a Claude: un PDF por encima de `max_paginas` se rechaza
+    sin gastar."""
     with tempfile.TemporaryDirectory() as tmp:
         ruta = Path(tmp) / "pliego.pdf"
         ruta.write_bytes(pdf)
         paginas = n_paginas(ruta)
+        if max_paginas and paginas > max_paginas:
+            raise DemasiadasPaginas(f"el pliego tiene {paginas} páginas y el tope es {max_paginas}")
+        tool_input, uso = llamar_claude(pdf, cliente)
         requisitos_json, pliego_json = a_formas(tool_input, nombre, paginas)
         cajas = citas_y_paginas(ruta, requisitos_json, carpeta_paginas) if carpeta_paginas else {}
     return {"requisitos": requisitos_json, "extraccion": pliego_json, "citas_bbox": cajas, "paginas": paginas,

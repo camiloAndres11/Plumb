@@ -7,6 +7,9 @@ psycopg[binary,pool]>=3.2,<4
 argon2-cffi>=23,<26
 itsdangerous>=2.2,<3
 python-multipart>=0.0.12,<1
+# Extraccion de pliegos con Claude (plataforma/extraccion.py). Faltaba: en el
+# contenedor de Render la extraccion moria con ImportError al poner la llave.
+anthropic>=0.68,<1
 # Los enfoques (pliego/) y la fuente de datos (Croma -> DuckDB):
 duckdb>=1.4,<2
 pyarrow>=17
