@@ -41,6 +41,20 @@ se imprime en el log de uvicorn con nivel WARNING. Es el modo de desarrollo.
 - Cambiar la contraseña (o restablecerla) cierra las demás sesiones.
 - `/terminos` y `/privacidad` son borradores marcados `<!-- REVISAR LEGAL -->`.
 
+## Perfil de la empresa (fase 2)
+
+Wizard de tres pasos en `/empresa/perfil/{1,2,3}` (solo admins editan): sede y
+departamentos donde licita y códigos UNSPSC; RUP, indicadores financieros y
+organizacionales, capacidad residual y cuantía objetivo; contratos de experiencia.
+Se guarda en `pliego.empresas.perfil` (JSONB) con **la misma forma que
+`pliego/filtro/fixtures/perfil_constructora.json`**, validada por
+`plataforma/esquemas.py`. Los departamentos van también a `empresas.departamentos` y
+quedan `pendiente` en `pliego.descargas_departamento` (la fase 3 los descarga).
+
+`pliego/comun/contexto.py` lleva la empresa actual (ContextVar) durante cada petición
+con sesión; `pliego/filtro/datos.perfil()` devuelve ese perfil si hay contexto y el
+ficticio si no (demo, pruebas). Catálogos en `plataforma/catalogos.py`.
+
 ## Variables de entorno
 
 | Variable | Qué hace |
@@ -74,7 +88,7 @@ plataforma/
 |---|---|---|
 | 0 | esqueleto, config, Postgres, migraciones, landing, Dockerfile, compose | hecha |
 | 1 | cuentas: registro, verificación, login, reset, equipo e invitaciones, CSRF, rate limit | hecha |
-| 2 | perfil de la empresa (wizard) y contexto de empresa para los enfoques | pendiente |
+| 2 | perfil de la empresa (wizard) y contexto de empresa para los enfoques | hecha |
 | 3 | datos de Croma por departamento en un warehouse DuckDB en disco, trabajos en segundo plano | pendiente |
 | 4 | filtro, radar y simulador montados bajo `/app/*` con sesión; panel con cifras de la empresa | pendiente |
 | 5 | pliegos: subir PDF, extracción con Claude, checklist y generador sobre él | pendiente |

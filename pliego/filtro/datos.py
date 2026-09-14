@@ -11,7 +11,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
-from pliego.comun import fuente
+from pliego.comun import contexto, fuente
 from pliego.filtro import logica
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -21,8 +21,14 @@ def _filas(nombre: str) -> list[dict]:
     return fuente.filas("filtro", nombre)
 
 
-@lru_cache(maxsize=1)
 def perfil() -> dict:
+    """El de la empresa en contexto (plataforma) o el ficticio de los fixtures."""
+    e = contexto.get()
+    return e.perfil if e else _perfil_fixture()
+
+
+@lru_cache(maxsize=1)
+def _perfil_fixture() -> dict:
     return json.loads((FIXTURES / "perfil_constructora.json").read_text(encoding="utf-8"))
 
 

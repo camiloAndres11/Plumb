@@ -20,6 +20,7 @@ from fastapi.responses import RedirectResponse, Response
 
 from plataforma import db, seguridad
 from plataforma.config import config
+from pliego.comun import contexto
 
 COOKIE = "pliego_sesion"
 TOCAR_CADA = timedelta(minutes=5)
@@ -113,10 +114,22 @@ async def cargar(request: Request, call_next):
         except db.BaseNoDisponible:
             pass
     request.state.usuario, request.state.empresa, request.state.sesion = usuario, empresa, sesion
-    respuesta = await call_next(request)
+    # La empresa queda en contexto para los enfoques (pliego/comun/contexto.py)
+    # mientras dura esta peticion; despues se limpia.
+    token = contexto.set(empresa["id"], _perfil_para_enfoques(empresa), empresa["departamentos"]) if empresa else None
+    try:
+        respuesta = await call_next(request)
+    finally:
+        if token is not None:
+            contexto.reset(token)
     if COOKIE in request.cookies and usuario is None and "set-cookie" not in respuesta.headers:
         quitar_cookie(respuesta)   # cookie huerfana (sesion cerrada o vencida)
     return respuesta
+
+
+def _perfil_para_enfoques(empresa: dict) -> dict:
+    """El JSONB mas nombre y NIT, con la forma de perfil_constructora.json."""
+    return {**(empresa.get("perfil") or {}), "nombre": empresa["nombre"], "nit": empresa["nit"]}
 
 
 # --------------------------------------------------------------- guardias
