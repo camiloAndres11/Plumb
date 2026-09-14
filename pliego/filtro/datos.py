@@ -1,38 +1,24 @@
-"""Carga los fixtures del filtro (parquet + JSON) en memoria y evalua.
+"""Carga los datos del filtro en memoria y evalua.
 
-Es la unica capa con IO del enfoque. Lee los fixtures commiteados en
-pliego/filtro/fixtures/ (los genera semilla.py desde el warehouse), asi
-que el prototipo corre sin el warehouse ni Postgres.
+Es la unica capa con IO del enfoque. Las filas vienen de pliego/comun/fuente:
+los fixtures commiteados en pliego/filtro/fixtures/ (los genera semilla.py
+desde el warehouse) o, con PLIEGO_FUENTE=croma, la API de Croma pasada por
+la misma SQL de la semilla. El prototipo corre sin warehouse ni Postgres.
 """
 from __future__ import annotations
 
 import json
-from datetime import date
 from functools import lru_cache
 from pathlib import Path
 
-import duckdb
-
+from pliego.comun import fuente
 from pliego.filtro import logica
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
-# Los `dias_restantes` de los procesos se calcularon contra esta fecha
-# (la del snapshot de abiertos). El prototipo la trata como "hoy".
-FECHA_SNAPSHOT = date(2026, 8, 22)
 
 
 def _filas(nombre: str) -> list[dict]:
-    con = duckdb.connect()
-    cur = con.execute(f"SELECT * FROM '{FIXTURES / nombre}'")
-    cols = [d[0] for d in cur.description]
-    filas = []
-    for tupla in cur.fetchall():
-        fila = dict(zip(cols, tupla))
-        for k, v in fila.items():
-            if isinstance(v, date):
-                fila[k] = v.isoformat()
-        filas.append(fila)
-    return filas
+    return fuente.filas("filtro", nombre)
 
 
 @lru_cache(maxsize=1)
@@ -42,22 +28,22 @@ def perfil() -> dict:
 
 @lru_cache(maxsize=1)
 def procesos() -> list[dict]:
-    return _filas("procesos_abiertos.parquet")
+    return _filas("procesos_abiertos")
 
 
 @lru_cache(maxsize=1)
 def historial_entidades() -> dict[str, dict]:
-    return {f["nit_entidad"]: f for f in _filas("entidades_historial.parquet")}
+    return {f["nit_entidad"]: f for f in _filas("entidades_historial")}
 
 
 @lru_cache(maxsize=1)
 def historial_familias() -> dict[tuple[str, str], dict]:
-    return {(f["nit_entidad"], f["familia"]): f for f in _filas("entidad_familia.parquet")}
+    return {(f["nit_entidad"], f["familia"]): f for f in _filas("entidad_familia")}
 
 
 @lru_cache(maxsize=1)
 def frecuencia_unspsc() -> dict[str, int]:
-    return {f["unspsc"]: int(f["n"]) for f in _filas("unspsc_frecuencia.parquet")}
+    return {f["unspsc"]: int(f["n"]) for f in _filas("unspsc_frecuencia")}
 
 
 def evaluar_proceso(p: dict, perf: dict | None = None) -> logica.Evaluacion:
@@ -102,4 +88,4 @@ def resumen() -> dict:
         conteo[x["evaluacion"]["recomendacion"]] += 1
         horas += x["evaluacion"]["horas_ahorradas"]
     return {"total": len(evs), "conteo": conteo, "horas_ahorradas": horas,
-            "fecha_snapshot": FECHA_SNAPSHOT.isoformat(), "perfil": perfil()["nombre"]}
+            "fecha_snapshot": fuente.hoy().isoformat(), "perfil": perfil()["nombre"]}

@@ -1,40 +1,34 @@
-"""Carga de fixtures del radar e indices en memoria (unica capa con IO)."""
+"""Carga de datos del radar e indices en memoria (unica capa con IO).
+
+Las filas vienen de pliego/comun/fuente: fixtures o Croma, mismo esquema.
+"""
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from datetime import date
 from functools import lru_cache
-from pathlib import Path
 
-import duckdb
-
+from pliego.comun import fuente
 from pliego.radar import logica
-
-FIXTURES = Path(__file__).resolve().parent / "fixtures"
-HOY = date(2026, 8, 22)     # fecha del snapshot de abiertos; el prototipo la trata como hoy
 
 
 def _filas(nombre: str) -> list[dict]:
-    cur = duckdb.connect().execute(f"SELECT * FROM '{FIXTURES / nombre}'")
-    cols = [d[0] for d in cur.description]
-    out = []
-    for t in cur.fetchall():
-        f = dict(zip(cols, t))
-        for k, v in f.items():
-            if isinstance(v, date):
-                f[k] = v.isoformat()
-        out.append(f)
-    return out
+    return fuente.filas("radar", nombre)
+
+
+def HOY():
+    """Fecha contra la que se mide saturacion y vigencia: la del snapshot
+    con fixtures, la de hoy con Croma."""
+    return fuente.hoy()
 
 
 @lru_cache(maxsize=1)
 def contratos() -> list[dict]:
-    return _filas("contratos.parquet")
+    return _filas("contratos")
 
 
 @lru_cache(maxsize=1)
 def abiertos() -> list[dict]:
-    return _filas("abiertos.parquet")
+    return _filas("abiertos")
 
 
 @lru_cache(maxsize=1)
@@ -55,12 +49,12 @@ def _por_proveedor() -> dict[str, list[dict]]:
 
 @lru_cache(maxsize=512)
 def entidad(nit: str, tipo: str | None = "OBRA") -> dict | None:
-    return logica.perfil_entidad(_por_entidad().get(nit, []), nit, HOY, tipo)
+    return logica.perfil_entidad(_por_entidad().get(nit, []), nit, HOY(), tipo)
 
 
 @lru_cache(maxsize=512)
 def competidor(doc: str) -> dict | None:
-    return logica.perfil_competidor(_por_proveedor().get(doc, []), doc, HOY)
+    return logica.perfil_competidor(_por_proveedor().get(doc, []), doc, HOY())
 
 
 def proceso(id_proceso: str) -> dict | None:
@@ -77,7 +71,7 @@ def competidores_de(id_proceso: str, n: int = 10) -> list[dict]:
     # Los perfiles (saturacion real, sobre TODO el historico del proveedor)
     # salen del indice por proveedor, no de recorrer `cand` una vez por doc:
     # eso era lo que tardaba ~9 s por proceso.
-    return logica.competidores_probables(cand, p, HOY, n=n, perfiles=_PerfilesPorDemanda())
+    return logica.competidores_probables(cand, p, HOY(), n=n, perfiles=_PerfilesPorDemanda())
 
 
 class _PerfilesPorDemanda:
