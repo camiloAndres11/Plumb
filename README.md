@@ -85,8 +85,9 @@ ruff check .
 | `DATABASE_URL`, `SECRET_KEY`, `BASE_URL`, `SMTP_URL`, `PLATAFORMA_ADMINS`, `PLATAFORMA_DATOS` | la plataforma |
 | `ANTHROPIC_API_KEY` | extracción de pliegos con Claude |
 
-Todas documentadas en `.env.example` y definidas en `pliego/comun/config.py` (base) y
-`plataforma/config.py` (lo de la plataforma). Se leen una sola vez al arrancar.
+Todas definidas, con su descripción y su valor por defecto, en `pliego/comun/config.py`
+(base) y `plataforma/config.py` (lo de la plataforma); `.env.example` se genera de ahí con
+`python -m pliego.comun.config --ejemplo`. Se leen una sola vez al arrancar.
 
 ## Flujo de trabajo
 
@@ -114,7 +115,9 @@ legacy/plomada/   Plomada, el producto anterior, en produccion y sin refactoriza
              pipeline/ sql/ api/ plomada/ frontend/ design/ tests/ (ver su README.md)
 docs/
   enfoques/  ENFOQUE.md por enfoque, croma.md, plataforma.md
+  adr/       decisiones de arquitectura (legado, Jinja2, configuracion, uv)
   agents/    instrucciones para agentes (issues, etiquetas, dominio, flujo de ramas)
+CONTEXT.md   glosario del dominio (proceso, contrato, bandera, perfil, pliego, fuente...)
 data/        no versionado: warehouse de Pliego, cache de Croma, PDFs
 ```
 
@@ -122,8 +125,11 @@ data/        no versionado: warehouse de Pliego, cache de Croma, PDFs
 
 - Enfoques y demo: hechos; corren sobre fixtures o sobre Croma.
 - Plataforma: seis fases hechas (cuentas, perfil, datos por departamento, enfoques
-  con sesión, pliegos con Claude, admin y Render). Pendiente: probar la extracción
-  real con `ANTHROPIC_API_KEY`, revisión legal de términos y privacidad, y desplegar.
+  con sesión, pliegos con Claude, admin y Render) y una remodelación completa
+  (seguridad, `pyproject` con CI de toda la suite, Plomada aislada, configuración
+  única, plantillas Jinja2, tokens hasheados; ver [`docs/adr/`](docs/adr/README.md)).
+  Pendiente: probar la extracción real con `ANTHROPIC_API_KEY`, revisión legal de
+  términos y privacidad, y desplegar.
 - Plomada: en producción en Render (`plumb-duy6.onrender.com`), aislada en `legacy/plomada/`.
 
 ## Fuentes

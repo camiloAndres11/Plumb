@@ -150,7 +150,10 @@ antes de arrancar. `BASE_URL` debe ser el host real del servicio.
   LOCKED`) y un proceso aparte para los trabajos.
 - La extracción con Claude está probada con un cliente simulado (la extracción manual
   del fixture); la calidad y el costo reales se miden con `ANTHROPIC_API_KEY` subiendo
-  `pliego_SI-LP-004-2021.pdf` y comparando con `requisitos_SI-LP-004-2021.json`.
+  `pliego_SI-LP-004-2021.pdf` y comparando con `requisitos_SI-LP-004-2021.json`. Hay
+  tope de páginas por PDF y presupuesto mensual por empresa (`PLIEGO_MAX_PAGINAS`,
+  `PLIEGO_PRESUPUESTO_USD_MES`); una cita que no se localiza en su página pasa a
+  "revisar" en vez de tomarse como hecho.
 - Sin poppler no hay resaltado ni páginas del pliego (el checklist funciona igual).
 - `f_al_tope_minima` y `f_cierre_movido` quedan en NULL con datos de Croma (ver
   `docs/enfoques/croma.md`).
@@ -166,3 +169,4 @@ antes de arrancar. `BASE_URL` debe ser el host real del servicio.
 | 4 | filtro, radar y simulador montados bajo `/app/*` con sesión; panel con cifras de la empresa | hecha |
 | 5 | pliegos: subir PDF, extracción con Claude, checklist y generador sobre él | hecha (llamada real a Claude por verificar) |
 | 6 | admin, health, log de acceso, Render con disco, documentación, PR a `dev` | hecha |
+| 7 | remodelación (septiembre 2026, ramas `feature/seguridad-urgente` … `feature/docs-al-dia`): seguridad, `pyproject`+CI completo, Plomada a `legacy/`, configuración única, Jinja2 sin JS inline, fixtures sin duplicar, tokens hasheados, dos colas, reautenticación | hecha (ver `docs/adr/`) |

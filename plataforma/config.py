@@ -7,7 +7,7 @@ para la lista y docs/enfoques/plataforma.md para que hace cada una.
 """
 from __future__ import annotations
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 
 from pliego.comun import config as base
 
@@ -17,34 +17,20 @@ RAIZ = base.RAIZ
 
 
 class Config(base.Config):
-    # Postgres con el esquema `pliego` (python -m plataforma.migrar lo crea).
-    database_url: str = ""
-    # Firma de cookies y tokens. Sin ella la app arranca (para /health)
-    # pero cualquier ruta con sesion responde 503 diciendo que falta.
-    secret_key: str = ""
-    # URL publica de ESTE servicio: va en los enlaces de los correos.
-    base_url: str = f"http://127.0.0.1:{PUERTO}"
-    # smtp://usuario:clave@host:587?tls=1 ; vacio = los correos se imprimen
-    # en el log (y se devuelven a quien los pidio, para las pruebas).
-    smtp_url: str = ""
-    correo_remitente: str = "Pliego <no-responder@pliego.co>"
-    # Emails (separados por coma) que ven /admin.
-    plataforma_admins: str = ""
-    # Sesion: dias de inactividad antes de expirar, y caducidad absoluta
-    # desde que se abrio, aunque se siga usando.
-    sesion_dias: int = 30
-    sesion_max_dias: int = 90
-    # Saltos de X-Forwarded-For que se descuentan desde la derecha para hallar
-    # la IP real. Por defecto 0: uvicorn ya resuelve la IP con --proxy-headers
-    # y una lista de proxies de red privada (ver el Dockerfile), asi que vale
-    # la del socket y la cabecera se ignora. Solo para despliegues sin esa
-    # capa (p. ej. detras de un proxy con IP publica).
-    proxies_confiables: int = 0
-    # Topes de la extraccion de pliegos con Claude, que paga la plataforma:
-    # paginas maximas por PDF (se cuentan ANTES de llamar) y presupuesto en
-    # USD por empresa y mes calendario (suma de costo_usd de sus pliegos).
-    pliego_max_paginas: int = 300
-    pliego_presupuesto_usd_mes: float = 25.0
+    database_url: str = Field("", description="Postgres con el esquema `pliego` (python -m plataforma.migrar). "
+                              "Con docker compose: postgresql://plomada:<POSTGRES_PASSWORD>@127.0.0.1:5432/plomada")
+    secret_key: str = Field("", description="Firma de cookies y tokens, >= 32 bytes: python -c \"import secrets; print(secrets.token_urlsafe(48))\". "
+                            "Sin ella la app arranca (para /health) pero toda ruta con sesion responde 503")
+    base_url: str = Field(f"http://127.0.0.1:{PUERTO}", description="URL publica de ESTE servicio; va en los enlaces de los correos")
+    smtp_url: str = Field("", description="smtp://usuario:clave@host:587?tls=1 ; vacio = los correos se imprimen en el log")
+    correo_remitente: str = Field("Pliego <no-responder@pliego.co>", description="Remitente de los correos")
+    plataforma_admins: str = Field("", description="Emails separados por coma que ven /admin")
+    sesion_dias: int = Field(30, description="Sesion: dias de inactividad antes de expirar")
+    sesion_max_dias: int = Field(90, description="Sesion: caducidad absoluta desde que se abrio, aunque se siga usando")
+    proxies_confiables: int = Field(0, description="Saltos de X-Forwarded-For que se descuentan desde la derecha para hallar la IP real. "
+                                    "0 = uvicorn ya la resuelve con --proxy-headers y su lista de proxies privados (ver el Dockerfile)")
+    pliego_max_paginas: int = Field(300, description="Paginas maximas por PDF en la extraccion con Claude (se cuentan antes de llamar)")
+    pliego_presupuesto_usd_mes: float = Field(25.0, description="Presupuesto en USD de extraccion por empresa y mes calendario")
 
     @field_validator("pliego_fuente", mode="after")
     @classmethod

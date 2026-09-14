@@ -46,7 +46,7 @@ Sonda `python -m pliego.comun.croma` más unas consultas a mano (9 créditos):
 - **Latencia**: las búsquedas SECOP a dataset tardan **1,5–30 s por página**, no
   milisegundos; la primera de cada tipo es la lenta. Una llamada abandonada por
   timeout se cobra igual si el servidor la termina. Por eso `fuente.py` cachea cada
-  búsqueda en `data/cache/croma/` (24 h) y descarga 4 en paralelo.
+  búsqueda en `$PLATAFORMA_DATOS/cache/croma/` (24 h) y descarga 4 en paralelo.
 - **Frescura**: `as_of` de SECOP = el mismo día a las 10:11 UTC → refresco diario.
 - **Volumen** (Santander, SECOP II, Obra): 472 procesos adjudicados desde 2025-01,
   341 sin adjudicar desde 2026-06, 1.881 contratos en total. Con el perfil de la
@@ -128,6 +128,8 @@ abiertos con banderas). Si Croma alimenta esas dos tablas en un DuckDB en memori
 | 4 | Enfoque nuevo sobre `plans-search` (PAA) | idea |
 
 ### Variables de entorno
+
+Definidas en `pliego/comun/config.py` (una sola fuente; `.env.example` se genera de ahí).
 
 | Variable | Efecto |
 |---|---|
