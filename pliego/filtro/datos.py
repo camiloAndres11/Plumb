@@ -17,9 +17,6 @@ from pliego.filtro import logica
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 
-def _filas(nombre: str) -> list[dict]:
-    return fuente.filas("filtro", nombre)
-
 
 def perfil() -> dict:
     """El de la empresa en contexto (plataforma) o el ficticio de los fixtures."""
@@ -34,22 +31,22 @@ def _perfil_fixture() -> dict:
 
 @cache.por_ambito()
 def procesos() -> list[dict]:
-    return _filas("procesos_abiertos")
+    return fuente.filas("filtro", "procesos_abiertos")
 
 
 @cache.por_ambito()
 def historial_entidades() -> dict[str, dict]:
-    return {f["nit_entidad"]: f for f in _filas("entidades_historial")}
+    return {f["nit_entidad"]: f for f in fuente.filas("filtro", "entidades_historial")}
 
 
 @cache.por_ambito()
 def historial_familias() -> dict[tuple[str, str], dict]:
-    return {(f["nit_entidad"], f["familia"]): f for f in _filas("entidad_familia")}
+    return {(f["nit_entidad"], f["familia"]): f for f in fuente.filas("filtro", "entidad_familia")}
 
 
 @cache.por_ambito()
 def frecuencia_unspsc() -> dict[str, int]:
-    return {f["unspsc"]: int(f["n"]) for f in _filas("unspsc_frecuencia")}
+    return {f["unspsc"]: int(f["n"]) for f in fuente.filas("filtro", "unspsc_frecuencia")}
 
 
 def evaluar_proceso(p: dict, perf: dict | None = None) -> logica.Evaluacion:

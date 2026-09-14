@@ -52,6 +52,12 @@ def reset(token) -> None:
     _actual.reset(token)
 
 
+def pliego() -> dict | None:
+    """El pliego elegido de la empresa en contexto (checklist y generador), o None."""
+    e = _actual.get()
+    return e.pliego if e and e.pliego else None
+
+
 def ambito() -> tuple[str, ...]:
     """() cuando no hay empresa: el ambito de los fixtures."""
     e = _actual.get()

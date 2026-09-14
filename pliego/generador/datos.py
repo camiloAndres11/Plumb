@@ -11,18 +11,14 @@ from datetime import date
 from functools import lru_cache
 from pathlib import Path
 
+from pliego.checklist.datos import PDF_FIXTURE, PROCESO_ID
 from pliego.comun import contexto as _ctx
 from pliego.generador import logica
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
-PROCESO_ID = "SI-LP-004-2021"
 # Fecha de cierre SIMULADA (el cronograma es el Anexo 2, no viene en el PDF).
 FECHA_CIERRE = date(2021, 7, 6)
-
-
-def _elegido() -> dict | None:
-    e = _ctx.get()
-    return e.pliego if e and e.pliego else None
+_elegido = _ctx.pliego
 
 
 def pliego() -> dict:
@@ -59,7 +55,7 @@ def fecha_cierre() -> date:
 
 def ruta_pdf() -> Path:
     p = _elegido()
-    return Path(p["pdf"]) if p else FIXTURES / _pliego_fixture()["pdf"]
+    return Path(p["pdf"]) if p else PDF_FIXTURE   # el mismo PDF del checklist: una sola copia
 
 
 def proceso_id() -> str:

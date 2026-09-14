@@ -11,10 +11,6 @@ from pliego.simulador import logica
 from pliego.simulador.metodos import VERSION_DEFECTO, VERSIONES
 
 
-def _filas(nombre: str) -> list[dict]:
-    return fuente.filas("simulador", nombre)
-
-
 def fecha_snapshot():
     """La fecha de los datos que se muestran: la del snapshot con fixtures,
     la de hoy con Croma."""
@@ -23,12 +19,12 @@ def fecha_snapshot():
 
 @cache.por_ambito()
 def historico() -> list[dict]:
-    return _filas("historico")
+    return fuente.filas("simulador", "historico")
 
 
 @cache.por_ambito()
 def abiertos() -> list[dict]:
-    return _filas("abiertos")
+    return fuente.filas("simulador", "abiertos")
 
 
 def proceso(id_proceso: str) -> dict | None:

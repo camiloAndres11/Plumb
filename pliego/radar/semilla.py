@@ -13,10 +13,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import duckdb
+from pliego.comun.semillas import exportar
 
-RAIZ = Path(__file__).resolve().parents[2]
-WAREHOUSE = RAIZ / "legacy" / "plomada" / "data" / "warehouse" / "plomada.duckdb"
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 CONTRATOS = """
@@ -42,17 +40,7 @@ ORDER BY fecha_cierre
 
 
 def main() -> int:
-    if not WAREHOUSE.exists():
-        print(f"no existe {WAREHOUSE}; corre legacy/plomada/pipeline/build.py y .../alertas.py primero")
-        return 1
-    FIXTURES.mkdir(exist_ok=True)
-    con = duckdb.connect(str(WAREHOUSE), read_only=True)
-    for nombre, sql in [("contratos", CONTRATOS), ("abiertos", ABIERTOS)]:
-        destino = FIXTURES / f"{nombre}.parquet"
-        con.execute(f"COPY ({sql}) TO '{destino}' (FORMAT PARQUET, COMPRESSION ZSTD)")
-        n = con.execute(f"SELECT count(*) FROM '{destino}'").fetchone()[0]
-        print(f"{destino.name:20s} {n:>6} filas  {destino.stat().st_size / 1024:.0f} KB")
-    return 0
+    return exportar(FIXTURES, [("contratos", CONTRATOS), ("abiertos", ABIERTOS)])
 
 
 if __name__ == "__main__":

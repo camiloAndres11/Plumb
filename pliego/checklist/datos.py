@@ -17,12 +17,9 @@ from pliego.checklist import logica
 from pliego.comun import contexto as _ctx
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
-PROCESO_ID = "SI-LP-004-2021"
-
-
-def _elegido() -> dict | None:
-    e = _ctx.get()
-    return e.pliego if e and e.pliego else None
+PROCESO_ID = "SI-LP-004-2021"   # el pliego de los fixtures; el generador usa el mismo
+PDF_FIXTURE = FIXTURES / f"pliego_{PROCESO_ID}.pdf"
+_elegido = _ctx.pliego
 
 
 def extraccion() -> dict:
@@ -58,7 +55,7 @@ def _cajas_fixture() -> dict:
 
 def ruta_pdf() -> Path:
     p = _elegido()
-    return Path(p["pdf"]) if p else FIXTURES / _extraccion_fixture()["proceso"]["pdf"]
+    return Path(p["pdf"]) if p else PDF_FIXTURE
 
 
 def ruta_pagina(n: int) -> Path:

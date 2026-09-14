@@ -21,10 +21,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import duckdb
+from pliego.comun.semillas import exportar
 
-RAIZ = Path(__file__).resolve().parents[2]
-WAREHOUSE = RAIZ / "legacy" / "plomada" / "data" / "warehouse" / "plomada.duckdb"
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 PROCESOS = """
@@ -99,18 +97,8 @@ SELECT unspsc, count(*) AS n FROM base WHERE unspsc LIKE 'V1.%' GROUP BY 1
 
 
 def main() -> int:
-    if not WAREHOUSE.exists():
-        print(f"no existe {WAREHOUSE}; corre legacy/plomada/pipeline/build.py y .../alertas.py primero")
-        return 1
-    FIXTURES.mkdir(exist_ok=True)
-    con = duckdb.connect(str(WAREHOUSE), read_only=True)
-    for nombre, sql in [("procesos_abiertos", PROCESOS), ("entidades_historial", ENTIDADES),
-                        ("entidad_familia", ENTIDAD_FAMILIA), ("unspsc_frecuencia", UNSPSC)]:
-        destino = FIXTURES / f"{nombre}.parquet"
-        con.execute(f"COPY ({sql}) TO '{destino}' (FORMAT PARQUET, COMPRESSION ZSTD)")
-        n = con.execute(f"SELECT count(*) FROM '{destino}'").fetchone()[0]
-        print(f"{destino.name:32s} {n:>7} filas  {destino.stat().st_size/1024:.0f} KB")
-    return 0
+    return exportar(FIXTURES, [("procesos_abiertos", PROCESOS), ("entidades_historial", ENTIDADES),
+                     ("entidad_familia", ENTIDAD_FAMILIA), ("unspsc_frecuencia", UNSPSC)])
 
 
 if __name__ == "__main__":

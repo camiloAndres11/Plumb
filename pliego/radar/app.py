@@ -55,7 +55,7 @@ def _pagina(request: Request, plantilla: str, titulo: str, actual: str, **ctx):
                     MODALIDAD_CORTA=MODALIDAD_CORTA, TIPO_NOMBRE=TIPO_NOMBRE, **ctx)
 
 
-_pct = W.pct
+
 
 
 # ------------------------------------------------------------------ JSON
@@ -121,7 +121,7 @@ def entidad(request: Request, nit: str, tipo: str = "OBRA"):
     nombre = W.titulo_caso(e["entidad"])
     h = W.h
     titular = Markup({
-        "abierta": f"{h(nombre)} adjudica de forma <span class='hot'>abierta</span>: nadie pasa del {h(_pct(e['share_top1']))}.",
+        "abierta": f"{h(nombre)} adjudica de forma <span class='hot'>abierta</span>: nadie pasa del {h(W.pct(e['share_top1']))}.",
         "predecible": f"{h(nombre)} adjudica de forma <span class='hot'>predecible</span>.",
         "intermedia": f"{h(nombre)} adjudica de forma <span class='{cl}'>intermedia</span>.",
         "sin_muestra": f"{h(nombre)}: <span class='mute'>sin muestra suficiente</span> en {h(TIPO_NOMBRE[tipo].lower())}.",
@@ -137,7 +137,7 @@ def entidad(request: Request, nit: str, tipo: str = "OBRA"):
     if e["mediana_oferentes"] and e["mediana_oferentes"] >= 10:
         consejos.append((f"{int(e['mediana_oferentes'])} oferentes por proceso: el precio decide, prepare el sobre 2.", True))
     if e["mediana_ratio"]:
-        consejos.append((f"Se adjudica al {_pct(e['mediana_ratio'], 1)}: {'poco' if e['mediana_ratio'] > 0.96 else 'algo de'} margen sobre el presupuesto.", e["mediana_ratio"] <= 0.96))
+        consejos.append((f"Se adjudica al {W.pct(e['mediana_ratio'], 1)}: {'poco' if e['mediana_ratio'] > 0.96 else 'algo de'} margen sobre el presupuesto.", e["mediana_ratio"] <= 0.96))
     return _pagina(request, "radar/entidad.html", nombre, "/entidades", e=e, nit=nit, tipo=tipo, nombre=nombre, titular=titular,
                    tabs=tabs, gan=gan, mx=max((g["n"] for g in gan), default=1), anios=anios, mxa=max(anios.values(), default=1),
                    anios_min=min(anios) if anios else "", anios_max=max(anios) if anios else "", consejos=consejos)
