@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% block head %}<link rel="stylesheet" href="{{ raiz }}/static/generador.css">{% endblock %}
+{% block pie %}
+<div class="side-foot"><div class="kicker">Perfil activo</div><b>{{ perfil_c.nombre }}</b><small>{{ perfil_c.ciudad }} · NIT {{ perfil_c.nit }}</small></div>
+{% endblock %}

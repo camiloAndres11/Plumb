@@ -1,0 +1,18 @@
+{% macro icono(estado) %}
+{% set clase = ESTADO[estado][2] %}
+<span class="{{ clase }}">{% if clase == "check-on" %}{{ iconos.check }}{% elif clase == "check-no" %}{{ iconos.no }}{% elif clase == "check-rev" %}?{% endif %}</span>
+{%- endmacro %}
+{% macro fila(r, lote) %}
+<a class="req" href="{{ raiz }}/requisito/{{ r.id }}?lote={{ lote }}">{{ icono(r.estado) }}
+<div><b>{{ r.titulo }}</b><small>{{ r.detalle }} · Sección {{ r.seccion }} · {{ CATEGORIA.get(r.categoria, r.categoria) }}</small></div>
+<span class="{{ ESTADO[r.estado][1] }}" style="justify-self:start">{{ ESTADO[r.estado][0] }}</span>
+<span class="pag">p. {{ r.pagina }} →</span></a>
+{%- endmacro %}
+{% macro grupo(titulo, sub, filas, lote) %}
+{% if filas %}
+<div class="card" style="padding:18px 22px"><div class="card-head"><div class="card-title">{{ titulo }}</div>
+<div class="card-label">{{ sub }}</div></div><div class="rows" style="margin-top:12px">
+{% for r in filas %}{{ fila(r, lote) }}{% endfor %}
+</div></div>
+{% endif %}
+{%- endmacro %}

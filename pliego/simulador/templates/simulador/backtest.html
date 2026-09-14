@@ -1,0 +1,16 @@
+{% extends "simulador/_base.html" %}
+{% block cuerpo %}
+<div><div class="kicker">Backtest · {{ b.n }} licitaciones recientes con 3 o más ofertas · fórmulas {{ version }}</div>
+<h1 class="titulo" style="font-size:26px">El precio recomendado le habría ganado a la oferta ganadora real en el {{ b.pct_gana_al_ganador|pct(0) }} de los procesos.</h1></div>
+<div class="stats">
+  <div class="stat"><div class="card-label">Le gana al ganador real</div><div class="big num hot" style="font-size:44px">{{ b.pct_gana_al_ganador|pct(0) }}</div><div class="mute-50" style="font-size:12px;margin-top:8px">promedio sobre métodos, ponderado por su probabilidad</div></div>
+  <div class="stat"><div class="card-label">Queda primero entre todos los simulados</div><div class="big num" style="font-size:44px">{{ b.pct_primero|pct(0) }}</div><div class="mute-50" style="font-size:12px;margin-top:8px">con una mediana de {{ med_of }} ofertas por proceso; al azar sería ~{{ azar }} %</div></div>
+  <div class="stat"><div class="card-label">Procesos evaluados</div><div class="big num" style="font-size:44px">{{ b.n }}</div><div class="mute-50" style="font-size:12px;margin-top:8px">cada uno recomendado sin mirar su propio resultado · {{ b.n_sim }} escenarios</div></div>
+</div>
+<div class="card"><div class="card-head"><div class="card-title">Proceso a proceso</div><div class="card-label">"Ganó al" es la razón oferta ganadora / presupuesto oficial</div></div>
+<table class="tabla" style="margin-top:12px"><thead><tr><th>Entidad</th><th>Fecha</th><th class="num">Presupuesto</th><th class="num">Ofertas</th><th class="num">Ganó al</th><th class="num">Recomendado</th><th class="num">Le gana al ganador</th><th class="num">Primero</th></tr></thead><tbody>
+{% for x in b.resultados|reverse %}<tr><td>{{ x.entidad|titulo_caso }}</td><td class="mute">{{ x.fecha[:7] }}</td><td class="num">{{ x.precio_base|mill }}</td><td class="num">{{ x.n_oferentes }}</td><td class="num">{{ x.ratio_ganador|pct(1) }}</td><td class="num hot">{{ x.ratio_recomendado|pct(1) }}</td><td class="num">{{ x.gana_al_ganador|pct(0) }}</td><td class="num">{{ x.prob_primero|pct(0) }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+<p class="foot-note">Cómo se mide: para cada proceso histórico se arma el pool de competidores sin ese proceso, se recomienda un precio, y se mete esa oferta junto con la ganadora real en escenarios simulados. "Le gana" = más puntaje que la ganadora real, ponderado por la probabilidad de cada método. Sin las ofertas perdedoras (SECOP no las publica) no hay mejor prueba.</p>
+{% endblock %}

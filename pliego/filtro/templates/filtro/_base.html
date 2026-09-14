@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block pie %}
+<div class="side-foot"><div class="kicker">Perfil activo</div><b>{{ perfil.nombre }}</b>
+<small>{% for d in perfil.departamentos_interes %}{% if not loop.first %} · {% endif %}{{ d|titulo_caso }}{% endfor %}</small>
+<div class="chips" style="margin-top:10px">{% for c in ("Vías", "Edificaciones", "Acueductos") %}<span class="chip" style="font-size:11px;padding:4px 9px">{{ c }}</span>{% endfor %}</div></div>
+{% endblock %}

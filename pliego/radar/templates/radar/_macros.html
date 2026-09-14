@@ -1,0 +1,9 @@
+{% macro stat(label, val, sub="", hot=false) %}
+<div class="stat" style="padding:16px 20px"><div class="card-label">{{ label }}</div>
+<div class="big num{% if hot %} hot{% endif %}" style="font-size:36px">{{ val }}</div>
+{% if sub %}<div class=mute-50 style=font-size:12px;margin-top:6px>{{ sub }}</div>{% endif %}</div>
+{%- endmacro %}
+{% macro tag_sat(nivel) %}{% set t = SAT.get(nivel, ("—", "tag tag-apagado")) %}<span class="{{ t[1] }}">{{ t[0] }}</span>{% endmacro %}
+{% macro fila_ranking(x, href, sub, n) %}
+<a class="row" style="grid-template-columns:minmax(0,1fr) 100px" href="{{ href }}"><div><b>{{ x }}</b><small>{{ sub }}</small></div><span class="pct">{{ n }}</span></a>
+{%- endmacro %}

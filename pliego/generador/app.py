@@ -12,68 +12,34 @@ from __future__ import annotations
 
 import html as _html
 import io
+import json
 import re
 import zipfile
+from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, Response
-from fastapi.staticfiles import StaticFiles
+from markupsafe import Markup
 
 from pliego.comun import web as W
 from pliego.generador import datos
 from pliego.generador import logica as L
 
 app = FastAPI(title="Pliego · Generador de propuesta", version="0.1.0")
-app.mount("/static", StaticFiles(directory=str(W.STATIC)), name="static")
+app.mount("/static", W.Estaticos(W.STATIC), name="static")
+templates = W.plantillas(Path(__file__).parent / "templates")
+ITEMS = [("/", "doc", "Propuesta"), ("/perfil", "perfil", "Mi perfil")]
 
 ESTADO = {L.LISTO: ("Listo", "tag tag-neutro"), L.CON_FALTANTES: ("Con faltantes", "tag"),
           L.ADJUNTAR: ("Adjuntar", "tag tag-borde"), L.NO_APLICA: ("No aplica", "tag tag-apagado")}
 ORIGEN = {L.PLIEGO: "Pliego", L.PERFIL: "Perfil", L.CALCULADO: "Calculado", L.FALTANTE: "Falta", L.NOAP: "No aplica"}
 
-EXTRA_CSS = """<style>
-.tag-borde { background: transparent; border: 1px solid rgba(255,255,255,.2); color: var(--ad-ink-85); }
-.o { padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap; }
-.o-pliego { background: var(--ad-accent-soft); color: var(--ad-accent-2); }
-.o-perfil { background: rgba(255,255,255,.1); color: var(--ad-ink-85); }
-.o-calculado { background: rgba(255,180,140,.12); color: var(--ad-accent-3); }
-.o-faltante { border: 1px solid var(--ad-accent-2); color: var(--ad-accent-2); }
-.o-no_aplica { border: 1px solid var(--ad-line-2); color: var(--ad-ink-50); }
-.doc { display: grid; grid-template-columns: minmax(0,1fr) 260px 120px 70px; gap: 14px; align-items: center; padding: 12px 14px; border-radius: 12px; background: var(--ad-fill-4); }
-.doc:hover { background: var(--ad-fill-2); }
-.doc b { font-size: 15px; font-weight: 600; display: block; }
-.doc small { display: block; font-size: 13px; color: var(--ad-ink-55); margin-top: 3px; }
-.doc .pag { font-size: 13px; color: var(--ad-ink-70); text-align: right; }
-.grid-8-4 { display: grid; grid-template-columns: minmax(0,8fr) minmax(0,4fr); gap: 18px; align-items: start; }
-.falta { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--ad-line-soft); font-size: 14px; }
-.falta:last-child { border-bottom: 0; }
-.falta small { display: block; font-size: 12px; color: var(--ad-ink-55); margin-top: 2px; }
-.papel { border-radius: 18px; background: var(--ad-paper); color: var(--ad-paper-ink); padding: 32px 36px; font-size: 15px; line-height: 1.6; }
-.papel p { margin: 0 0 14px; } .papel ol, .papel ul { margin: 0 0 14px; padding-left: 22px; }
-.papel table { border-collapse: collapse; width: 100%; font-size: 13px; margin: 0 0 14px; }
-.papel th, .papel td { border-bottom: 1px solid rgba(26,26,28,.12); padding: 6px 8px; text-align: left; vertical-align: top; }
-.papel th { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--ad-paper-mute); }
-.papel mark { background: transparent; color: inherit; border-radius: 2px; padding: 0 2px; border-bottom: 2px solid; }
-.papel mark.m-pliego { border-color: #ec3013; background: rgba(236,48,19,.08); }
-.papel mark.m-perfil { border-color: #8a8580; background: rgba(26,26,28,.06); }
-.papel mark.m-calculado { border-color: #ffb4a0; background: rgba(255,180,140,.18); }
-.papel .leyenda { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ad-paper-mute); margin-bottom: 14px; }
-.campo { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--ad-line-soft); font-size: 13px; align-items: start; }
-.campo:last-child { border-bottom: 0; }
-.campo small { color: var(--ad-ink-55); font-size: 12px; display: block; }
-.campo .src { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-.campo .src a, .campo .src span.f { font-size: 11px; color: var(--ad-ink-50); }
-</style>"""
-
-
-def _side(actual: str) -> str:
+def _pagina(request: Request, plantilla: str, titulo: str, actual: str, **ctx):
     c = datos.perfil()
-    ciudad = c.get("ciudad") or ((c.get("sede") or {}).get("ciudad") or "").title()
-    pie = f'<div class="side-foot"><div class="kicker">Perfil activo</div><b>{W.h(c.get("nombre"))}</b><small>{W.h(ciudad)} · NIT {W.h(c.get("nit"))}</small></div>'
-    return W.sidebar([("/", "doc", "Propuesta"), ("/perfil", "perfil", "Mi perfil")], actual, pie)
-
-
-def _otag(o: str, extra: str = "") -> str:
-    return f'<span class="o o-{o}">{ORIGEN[o]}{extra}</span>'
+    perfil_c = {"nombre": c.get("nombre"), "nit": c.get("nit"),
+                "ciudad": c.get("ciudad") or ((c.get("sede") or {}).get("ciudad") or "").title()}
+    return W.render(templates, request, plantilla, titulo=titulo, items=ITEMS, actual=actual, perfil_c=perfil_c,
+                    ESTADO=ESTADO, ORIGEN=ORIGEN, L=L, **ctx)
 
 
 def _fmt(v) -> str:
@@ -170,7 +136,7 @@ def paquete_zip(lote: int = Query(1, ge=1)):
         falta = L.lo_que_falta(docs)
         z.writestr("00_lo_que_falta.md", "# Lo que falta\n\n" + "\n".join(
             f"- {'**[RECHAZO]** ' if f['critico'] else ''}{f['etiqueta']} — {f['documento_nombre']} ({f['fuente']})" for f in falta) + "\n")
-        z.writestr("00_origenes.json", __import__("json").dumps(
+        z.writestr("00_origenes.json", json.dumps(
             [{"documento": d.id, "campos": [c.como_dict() for c in d.campos]} for d in docs], ensure_ascii=False, indent=1))
     return Response(buf.getvalue(), media_type="application/zip",
                     headers={"Content-Disposition": f'attachment; filename="propuesta_{datos.proceso_id()}_grupo{lote}.zip"'})
@@ -178,7 +144,7 @@ def paquete_zip(lote: int = Query(1, ge=1)):
 
 # ------------------------------------------------------------------ HTML
 @app.get("/", response_class=HTMLResponse)
-def inicio(lote: int = Query(1, ge=1)):
+def inicio(request: Request, lote: int = Query(1, ge=1)):
     try:
         p = datos.paquete(lote)
     except KeyError:
@@ -189,36 +155,13 @@ def inicio(lote: int = Query(1, ge=1)):
     nc = r["faltantes_criticos"]
     titular = (f"La propuesta está al {pct} %: {r['conteo'][L.LISTO]} borradores listos, "
                + ("nada la rechaza." if nc == 0 else ("falta 1 cosa que la rechaza." if nc == 1 else f"faltan {nc} cosas que la rechazan.")))
-    tabs = "".join(f'<a class="tab{" on" if x["n"] == lote_["n"] else ""}" href="/?lote={x["n"]}">Grupo {x["n"]}</a>' for x in p["proceso"]["lotes"])
-    filas = ""
-    for d in p["documentos"]:
-        n = {o: sum(1 for c in d["campos"] if c["origen"] == o) for o in ORIGEN}
-        orig = " ".join(_otag(o, f" · {n[o]}") for o in (L.PLIEGO, L.PERFIL, L.CALCULADO) if n[o]) + (" " + _otag(L.FALTANTE, f" · {n[L.FALTANTE]}") if n[L.FALTANTE] else "")
-        t, cl = ESTADO[d["estado"]]
-        filas += (f'<a class="doc" href="/documento/{d["id"]}?lote={lote}"><div><b>{W.h(d["nombre"])}</b><small>{W.h(d["descripcion"])}</small></div>'
-                  f'<div class="chips" style="gap:6px">{orig}</div><span class="{cl}" style="justify-self:start">{t}</span><span class="pag">p. {d["pagina"]} →</span></a>')
-    falta = "".join(f'<div class="falta"><span><b class="{"hot" if f["critico"] else ""}">{W.h(f["etiqueta"])}</b><small>{W.h(f["documento_nombre"])} · {W.h(f["fuente"])}</small></span>{_otag(L.FALTANTE, " · rechazo" if f["critico"] else "")}</div>'
-                    for f in p["faltantes"]) or '<span class="mute" style="font-size:13px">Nada: todo lo que el pliego pide está en el perfil.</span>'
-    cuerpo = f"""
-<div class="cab"><div><div class="kicker">{W.h(p['proceso']['id'])} · {W.h(datos.pliego()['campos']['entidad']['valor'])} · Grupo {lote_['n']} · {W.mill(lote_['presupuesto'])}</div>
-<h1 class="titulo" style="font-size:26px">{W.h(titular)}</h1>
-<p class="mute" style="font-size:14px;margin-top:6px">{r['origenes'][L.PLIEGO]} datos salieron del pliego, {r['origenes'][L.PERFIL]} del perfil, {r['origenes'][L.CALCULADO]} se calcularon y {r['origenes'][L.FALTANTE]} faltan.</p></div>
-<div style="display:flex;gap:10px;align-items:center"><div class="tabs">{tabs}</div><a class="btn" style="padding:11px 20px;font-size:14px" href="/paquete.zip?lote={lote}">Exportar paquete (.zip)</a></div></div>
-<div class="grid-8-4">
-  <div class="card"><div class="card-head"><div class="card-title">Documentos de la oferta</div><div class="card-label">en el orden del pliego · cada dato con su origen</div></div><div class="rows" style="margin-top:14px">{filas}</div></div>
-  <div style="display:flex;flex-direction:column;gap:14px">
-    <div class="card"><div class="card-head"><div class="card-title">Lo que falta, en orden</div><div class="card-label">primero lo que rechaza la oferta</div></div><div style="margin-top:6px">{falta}</div></div>
-    <div class="card"><div class="card-label">Cómo leer los orígenes</div><div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;font-size:13px;color:var(--ad-ink-75)">
-      <div>{_otag(L.PLIEGO)} sale del pliego, con la página</div><div>{_otag(L.PERFIL)} sale de su perfil</div><div>{_otag(L.CALCULADO)} se deriva de los dos, con la fórmula</div><div>{_otag(L.FALTANTE)} no está en ninguno: hay que conseguirlo</div></div></div>
-  </div>
-</div>
-<p class="foot-note">Los borradores se redactan con los datos del pliego y de su perfil; revíselos y ajústelos antes de firmar. El pliego es real (SECOP II, <a href="/pliego.pdf" target="_blank" style="color:var(--ad-ink-85)">abrir PDF</a>); el perfil es ficticio.</p>
-"""
-    return W.pagina(f"Propuesta · Grupo {lote}", cuerpo, _side("/"), EXTRA_CSS)
+    documentos = [(d, {o: sum(1 for c in d["campos"] if c["origen"] == o) for o in ORIGEN}) for d in p["documentos"]]
+    return _pagina(request, "generador/inicio.html", f"Propuesta · Grupo {lote}", "/", p=p, r=r, lote_=lote_, lote=lote,
+                   titular=titular, documentos=documentos, entidad=datos.pliego()["campos"]["entidad"]["valor"])
 
 
 @app.get("/documento/{id_doc}", response_class=HTMLResponse)
-def documento(id_doc: str, lote: int = Query(1, ge=1)):
+def documento(request: Request, id_doc: str, lote: int = Query(1, ge=1)):
     try:
         docs = datos.documentos(lote)
     except KeyError:
@@ -228,51 +171,14 @@ def documento(id_doc: str, lote: int = Query(1, ge=1)):
         raise HTTPException(404, "documento no encontrado")
     d = docs[idx]
     ant, sig = docs[idx - 1], docs[(idx + 1) % len(docs)]
-    t, cl = ESTADO[d.estado]
-    cuerpo_doc = marcar(md_a_html(d.texto), d.campos) if d.texto else '<p class="note">Sin borrador: faltan los datos de base.</p>'
-    filas = ""
-    for c in d.campos:
-        if c.origen == L.PLIEGO and c.pagina:
-            src = f'<a href="/pliego.pdf#page={c.pagina}" target="_blank">p. {c.pagina} →</a>'
-        elif c.origen == L.PERFIL:
-            src = f'<span class="f">{W.h(c.fuente.replace("perfil.", ""))}</span>'
-        else:
-            src = f'<span class="f" title="{W.h(c.fuente)}">{W.h(c.fuente[:48])}{"…" if len(c.fuente) > 48 else ""}</span>'
-        val = _fmt(c.valor) if c.valor not in (None, "") else "—"
-        filas += (f'<div class="campo"><div><small>{W.h(c.etiqueta)}{" · rechazo si falta" if c.critico and c.origen == L.FALTANTE else ""}</small>'
-                  f'<div style="margin-top:2px;line-height:1.35" class="{"hot" if c.origen == L.FALTANTE else ""}">{W.h(val[:90])}{"…" if len(val) > 90 else ""}</div></div>'
-                  f'<div class="src">{_otag(c.origen)}{src}</div></div>')
-    cuerpo = f"""
-<nav class="migas"><a href="/?lote={lote}">Propuesta</a><span>/</span><span>Grupo {lote}</span><span>/</span><span>{W.h(d.nombre)}</span></nav>
-<div class="cab"><div><div class="kicker">Borrador · el pliego lo exige en la p. {d.pagina}</div><h1 class="titulo" style="font-size:24px">{W.h(d.nombre)}</h1></div>
-<div style="display:flex;gap:10px;align-items:center"><span class="{cl}">{t}</span><a class="btn-ghost" style="padding:11px 20px;font-size:14px" href="/documento/{ant.id}?lote={lote}">← Anterior</a>
-<a class="btn-ghost" style="padding:11px 20px;font-size:14px" href="/documento/{sig.id}?lote={lote}">Siguiente →</a><a class="btn" style="padding:11px 20px;font-size:14px" href="/documento/{d.id}.md?lote={lote}">Descargar .md</a></div></div>
-<div class="grid-7-5" style="align-items:start">
-  <div class="papel"><div class="leyenda">Vista previa · subrayado por origen: <span style="border-bottom:2px solid #ec3013">pliego</span> · <span style="border-bottom:2px solid #8a8580">perfil</span> · <span style="border-bottom:2px solid #ffb4a0">calculado</span></div>{cuerpo_doc}</div>
-  <div class="card"><div class="card-head"><div class="card-title">De dónde sale cada dato</div><div class="card-label">{len(d.campos)} campos · {len(d.faltantes)} faltan</div></div><div style="margin-top:6px">{filas}</div>
-  <div class="mute-50" style="font-size:12px;margin-top:12px">Cada "p. N" abre el pliego en esa página. Los cálculos muestran su fórmula.</div></div>
-</div>
-"""
-    return W.pagina(d.nombre, cuerpo, _side("/"), EXTRA_CSS)
+    # md_a_html escapa el texto antes de marcarlo: es HTML ya seguro.
+    cuerpo_doc = Markup(marcar(md_a_html(d.texto), d.campos)) if d.texto else Markup('<p class="note">Sin borrador: faltan los datos de base.</p>')
+    campos = [(c, _fmt(c.valor) if c.valor not in (None, "") else "—") for c in d.campos]
+    return _pagina(request, "generador/documento.html", d.nombre, "/", d=d, ant=ant, sig=sig, lote=lote,
+                   cuerpo_doc=cuerpo_doc, campos=campos)
 
 
 @app.get("/perfil", response_class=HTMLResponse)
-def perfil():
+def perfil(request: Request):
     p = datos.perfil()
-    rl, f = p["representante_legal"], p["financiero"]
-    rup = "".join(f'<tr><td>{c["consecutivo"]}</td><td>{W.h(c["objeto"])}</td><td>{W.h(c["entidad"])}</td><td class="num">{W.entero(c["valor_smmlv"])}</td><td>{"sí" if c["terminado"] else "no"}</td></tr>' for c in p["rup"]["contratos"])
-    cuerpo = f"""
-<div class="cab"><div><div class="kicker">Mi perfil · ficticio, para el prototipo</div><h1 class="titulo">{W.h(p['nombre'])}</h1></div></div>
-<div class="grid-5-7">
-  <div class="card"><div class="card-title">Datos que entran a los borradores</div>
-    <div class="grid-2" style="margin-top:16px">
-      <div class="mini"><small>NIT</small><b class="txt">{W.h(p['nit'])}</b></div><div class="mini"><small>Representante legal</small><b class="txt">{W.h(rl['nombre'])} · {W.h(rl['profesion'])}</b></div>
-      <div class="mini"><small>Dirección</small><b class="txt">{W.h(p['direccion'])}, {W.h(p['ciudad'])}</b></div><div class="mini"><small>Correo</small><b class="txt">{W.h(p['correo'])}</b></div>
-      <div class="mini"><small>Capacidad residual</small><b class="num">{W.mill(p['capacidad_residual']['crp'])}</b></div><div class="mini"><small>Estados financieros</small><b class="txt">corte {f['corte']} · {W.h(f['revisor_fiscal'])}</b></div>
-    </div></div>
-  <div class="card"><div class="card-head"><div class="card-title">Contratos en el RUP</div><div class="card-label">{len(p['rup']['contratos'])} · expedido {p['rup']['fecha_expedicion']}</div></div>
-    <table class="tabla" style="margin-top:12px"><thead><tr><th>#</th><th>Objeto</th><th>Entidad</th><th class="num">SMMLV</th><th>Terminado</th></tr></thead><tbody>{rup}</tbody></table></div>
-</div>
-<p class="foot-note">El perfil vive en pliego/generador/fixtures/perfil_constructora.json. Lo que no esté aquí sale como "Falta" en los borradores.</p>
-"""
-    return W.pagina("Mi perfil", cuerpo, _side("/perfil"), EXTRA_CSS)
+    return _pagina(request, "generador/perfil.html", "Mi perfil", "/perfil", p=p, rl=p["representante_legal"], f=p["financiero"])

@@ -1,0 +1,8 @@
+{% extends "radar/_base.html" %}
+{% block cuerpo %}
+<div class="cab"><div><div class="kicker">{{ kicker }}</div><h1 class="titulo">{{ titulo_pagina }}</h1></div></div><div class="rows">
+{% for x in filas %}
+<a class="row" style="grid-template-columns:minmax(0,1fr) 100px" href="{{ raiz }}{{ x.href }}"><div><b>{{ x.nombre|titulo_caso }}</b><small>{{ x.sub }}</small></div><span class="pct">{{ x.n }}</span></a>
+{% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "filtro/_base.html" %}
+{% block cuerpo %}
+<div class="cab">
+  <div><div class="kicker">Procesos abiertos · {{ etiqueta_fecha }}</div>
+  <h1 class="titulo">{{ tot }} procesos abiertos, {{ c.presentarse }} valen su tiempo.</h1></div>
+  <span class="badge"><span class="dot"></span>Se ahorra {{ res.horas_ahorradas|entero }} horas de propuestas que no ganaría</span>
+</div>
+<div class="stats">
+  {% for label, n, clase_num, clase_bar in stats %}
+  <div class="stat"><div class="card-label">{{ label }}</div>
+  <div class="big num {{ clase_num }}">{{ n }}</div>
+  <div class="bar {{ clase_bar }}"><span style="--w:{{ '%.0f'|format(100 * n / tot) if tot else 0 }}%"></span></div></div>
+  {% endfor %}
+</div>
+<div class="tabs">
+{% for key, label, n in tabs %}<a class="tab{% if (key == recomendacion) or (key is none and recomendacion not in ETIQUETA) %} on{% endif %}" href="{{ raiz }}/{% if key %}?recomendacion={{ key }}{% endif %}">{{ label }} · {{ n }}</a>{% endfor %}
+</div>
+<div class="rows">
+{% for x in evs %}
+{% set ev = x.evaluacion %}
+<a class="row{% if ev.recomendacion == NO_PRESENTARSE %} off{% endif %}" style="grid-template-columns:minmax(0,1fr) 190px 130px 70px" href="{{ raiz }}/proceso/{{ x.id_del_proceso }}">
+<div><b>{{ (x.descripcion or "Sin descripción")|frase|truncate(110, true, "") }}</b>
+<small>{{ x.entidad|titulo_caso }} · {{ x.departamento|titulo_caso }} · {{ MODALIDAD_CORTA.get(x.modalidad, x.modalidad|titulo_caso) }} · {{ x.precio_base|mill }} · cierra en {{ x.dias_restantes }} días</small></div>
+<div style="font-size:13px;color:var(--ad-ink-70)">{{ resumen_corto(x) }}</div>
+<span class="{{ ETIQUETA[ev.recomendacion][1] }}" style="justify-self:start">{{ ETIQUETA[ev.recomendacion][0] }}</span>
+<div class="pct{% if ev.recomendacion == PRESENTARSE %} hot{% elif ev.recomendacion == NO_PRESENTARSE %} mute-50{% endif %}">{{ ev.puntaje }}</div></a>
+{% endfor %}
+</div>
+<p class="foot-note">Fuente: procesos abiertos en SECOP II (universo accionable del snapshot) y adjudicaciones históricas de cada entidad.
+La recomendación es una estimación: cada razón trae la cifra que la sustenta. Perfil evaluado: {{ res.perfil }} (ficticio).</p>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "radar/_base.html" %}
+{% block cuerpo %}
+<div class="cab"><div><div class="kicker">Radar · sepa contra quién compite antes de presentarse</div><h1 class="titulo">¿Quién gana ahí, y cómo?</h1></div></div>
+<div><label class="busca"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg><input id="q" placeholder="Buscar una entidad o un competidor (mínimo 3 letras)"></label><div class="res" id="res"></div></div>
+<div class="card"><div class="card-head"><div class="card-title">Procesos abiertos</div><div class="card-label">{{ n_abiertos }} accionables · {{ etiqueta_fecha }} · los 25 que cierran antes</div></div>
+<div class="rows" style="margin-top:12px">
+{% for a in ab %}
+<a class="row" style="grid-template-columns:minmax(0,1fr) 120px" href="{{ raiz }}/proceso/{{ a.id_del_proceso }}"><div><b>{{ (a.descripcion or "Sin descripción")|frase|truncate(100, true, "") }}</b>
+<small>{{ a.entidad|titulo_caso }} · {{ a.departamento|titulo_caso }} · {{ MODALIDAD_CORTA.get(a.modalidad, a.modalidad|titulo_caso) }} · {{ a.precio_base|mill }} · cierra en {{ a.dias_restantes }} días</small></div>
+<span class="mute" style="font-size:13px;text-align:right">¿contra quién? →</span></a>
+{% endfor %}
+</div></div>
+<p class="foot-note">Fuente: contratos de construcción del SECOP II. "Probable" = ha ganado procesos parecidos; SECOP no publica quién se presentó y perdió.</p>
+{% endblock %}

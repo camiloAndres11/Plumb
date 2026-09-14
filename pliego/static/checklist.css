@@ -1,0 +1,14 @@
+/* Checklist del pliego (pliego/checklist/templates/). */
+.check-no { border: 1.5px solid var(--ad-accent-2); }
+.check-falta { border: 1.5px dashed var(--ad-ink-45); }
+.check-rev { border: 1.5px solid var(--ad-ink-35); font-size: 11px; color: var(--ad-ink-60); }
+.tag-falta { background: transparent; border: 1px solid var(--ad-accent-2); color: var(--ad-accent-2); }
+.req { display: grid; grid-template-columns: 18px minmax(0,1fr) 150px 74px; gap: 14px; align-items: start; padding: 12px 14px; border-radius: 12px; background: var(--ad-fill-4); }
+.req:hover { background: var(--ad-fill-2); }
+.req b { font-size: 15px; font-weight: 600; display: block; }
+.req small { display: block; font-size: 13px; color: var(--ad-ink-55); margin-top: 3px; }
+.req .pag { font-size: 13px; color: var(--ad-ink-70); text-align: right; white-space: nowrap; }
+.pdf { position: relative; width: 612px; margin: 0 auto; box-shadow: var(--ad-shadow); }
+.pdf img { display: block; width: 612px; height: auto; }
+.marca { position: absolute; background: rgba(236,48,19,.35); outline: 2px solid rgba(236,48,19,.6); border-radius: 2px; }
+.stats-4 { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }

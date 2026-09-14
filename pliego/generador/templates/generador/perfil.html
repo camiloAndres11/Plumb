@@ -1,0 +1,17 @@
+{% extends "generador/_base.html" %}
+{% block cuerpo %}
+<div class="cab"><div><div class="kicker">Mi perfil · ficticio, para el prototipo</div><h1 class="titulo">{{ p.nombre }}</h1></div></div>
+<div class="grid-5-7">
+  <div class="card"><div class="card-title">Datos que entran a los borradores</div>
+    <div class="grid-2" style="margin-top:16px">
+      <div class="mini"><small>NIT</small><b class="txt">{{ p.nit }}</b></div><div class="mini"><small>Representante legal</small><b class="txt">{{ rl.nombre }} · {{ rl.profesion }}</b></div>
+      <div class="mini"><small>Dirección</small><b class="txt">{{ p.direccion }}, {{ p.ciudad }}</b></div><div class="mini"><small>Correo</small><b class="txt">{{ p.correo }}</b></div>
+      <div class="mini"><small>Capacidad residual</small><b class="num">{{ p.capacidad_residual.crp|mill }}</b></div><div class="mini"><small>Estados financieros</small><b class="txt">corte {{ f.corte }} · {{ f.revisor_fiscal }}</b></div>
+    </div></div>
+  <div class="card"><div class="card-head"><div class="card-title">Contratos en el RUP</div><div class="card-label">{{ p.rup.contratos|length }} · expedido {{ p.rup.fecha_expedicion }}</div></div>
+    <table class="tabla" style="margin-top:12px"><thead><tr><th>#</th><th>Objeto</th><th>Entidad</th><th class="num">SMMLV</th><th>Terminado</th></tr></thead><tbody>
+    {% for c in p.rup.contratos %}<tr><td>{{ c.consecutivo }}</td><td>{{ c.objeto }}</td><td>{{ c.entidad }}</td><td class="num">{{ c.valor_smmlv|entero }}</td><td>{{ "sí" if c.terminado else "no" }}</td></tr>{% endfor %}
+    </tbody></table></div>
+</div>
+<p class="foot-note">El perfil vive en pliego/generador/fixtures/perfil_constructora.json. Lo que no esté aquí sale como "Falta" en los borradores.</p>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "generador/_base.html" %}
+{% from "generador/_otag.html" import otag with context %}
+{% block cuerpo %}
+<div class="cab"><div><div class="kicker">{{ p.proceso.id }} · {{ entidad }} · Grupo {{ lote_.n }} · {{ lote_.presupuesto|mill }}</div>
+<h1 class="titulo" style="font-size:26px">{{ titular }}</h1>
+<p class="mute" style="font-size:14px;margin-top:6px">{{ r.origenes[L.PLIEGO] }} datos salieron del pliego, {{ r.origenes[L.PERFIL] }} del perfil, {{ r.origenes[L.CALCULADO] }} se calcularon y {{ r.origenes[L.FALTANTE] }} faltan.</p></div>
+<div style="display:flex;gap:10px;align-items:center"><div class="tabs">{% for x in p.proceso.lotes %}<a class="tab{% if x.n == lote_.n %} on{% endif %}" href="{{ raiz }}/?lote={{ x.n }}">Grupo {{ x.n }}</a>{% endfor %}</div><a class="btn" style="padding:11px 20px;font-size:14px" href="{{ raiz }}/paquete.zip?lote={{ lote }}">Exportar paquete (.zip)</a></div></div>
+<div class="grid-8-4">
+  <div class="card"><div class="card-head"><div class="card-title">Documentos de la oferta</div><div class="card-label">en el orden del pliego · cada dato con su origen</div></div><div class="rows" style="margin-top:14px">
+  {% for d, n in documentos %}
+  <a class="doc" href="{{ raiz }}/documento/{{ d.id }}?lote={{ lote }}"><div><b>{{ d.nombre }}</b><small>{{ d.descripcion }}</small></div>
+  <div class="chips" style="gap:6px">{% for o in (L.PLIEGO, L.PERFIL, L.CALCULADO) %}{% if n[o] %}{{ otag(o, " · " ~ n[o]) }} {% endif %}{% endfor %}{% if n[L.FALTANTE] %}{{ otag(L.FALTANTE, " · " ~ n[L.FALTANTE]) }}{% endif %}</div><span class="{{ ESTADO[d.estado][1] }}" style="justify-self:start">{{ ESTADO[d.estado][0] }}</span><span class="pag">p. {{ d.pagina }} →</span></a>
+  {% endfor %}
+  </div></div>
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div class="card"><div class="card-head"><div class="card-title">Lo que falta, en orden</div><div class="card-label">primero lo que rechaza la oferta</div></div><div style="margin-top:6px">
+    {% for f in p.faltantes %}<div class="falta"><span><b class="{{ "hot" if f.critico else "" }}">{{ f.etiqueta }}</b><small>{{ f.documento_nombre }} · {{ f.fuente }}</small></span>{{ otag(L.FALTANTE, " · rechazo" if f.critico else "") }}</div>
+    {% else %}<span class="mute" style="font-size:13px">Nada: todo lo que el pliego pide está en el perfil.</span>{% endfor %}
+    </div></div>
+    <div class="card"><div class="card-label">Cómo leer los orígenes</div><div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;font-size:13px;color:var(--ad-ink-75)">
+      <div>{{ otag(L.PLIEGO) }} sale del pliego, con la página</div><div>{{ otag(L.PERFIL) }} sale de su perfil</div><div>{{ otag(L.CALCULADO) }} se deriva de los dos, con la fórmula</div><div>{{ otag(L.FALTANTE) }} no está en ninguno: hay que conseguirlo</div></div></div>
+  </div>
+</div>
+<p class="foot-note">Los borradores se redactan con los datos del pliego y de su perfil; revíselos y ajústelos antes de firmar. El pliego es real (SECOP II, <a href="{{ raiz }}/pliego.pdf" target="_blank" style="color:var(--ad-ink-85)">abrir PDF</a>); el perfil es ficticio.</p>
+{% endblock %}

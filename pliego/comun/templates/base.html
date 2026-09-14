@@ -1,0 +1,36 @@
+{# Shell de los enfoques: sidebar + main. Las paginas extienden esto y llenan
+   `titulo`, `items` (lista de (ruta, icono, texto)), `actual`, y los bloques
+   head, pie (el pie de la sidebar), cuerpo y js. `raiz` y `hub` llegan del
+   contexto (pliego/comun/web.py). #}
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ titulo }} — Pliego</title>
+<meta name="theme-color" content="#0b0b0d">
+<link rel="stylesheet" href="{{ raiz }}/static/base.css">
+{% block head %}{% endblock %}
+<body data-raiz="{{ raiz }}">
+<div class="app">
+{% block sidebar %}
+<aside class="side">{{ LOGO }}
+{% if hub and hub.volver %}
+<a class="side-item" href="{{ hub.volver[0] }}" style="margin-bottom:6px;color:var(--ad-ink-55)">{{ iconos.volver }}{{ hub.volver[1] }}</a>
+{% endif %}
+{% if hub and hub.get('items') %}
+{% for it in hub.get('items') %}
+<a class="side-item{% if it.on %} on{% endif %}" href="{{ it.href }}">{{ iconos[it.icono] }}{{ it.texto }}</a>
+{% endfor %}
+{% else %}
+{% for ruta, ic, t in items %}
+<a class="side-item{% if actual == ruta %} on{% endif %}" href="{{ raiz }}{{ ruta }}">{{ iconos[ic] }}{{ t }}</a>
+{% endfor %}
+{% endif %}
+{% if hub and hub.pie %}{{ hub.pie }}{% else %}{% block pie %}{% endblock %}{% endif %}
+</aside>
+{% endblock %}
+<main class="main">
+{% block cuerpo %}{% endblock %}
+</main>
+</div>
+{% block js %}{% endblock %}

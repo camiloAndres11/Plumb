@@ -1,0 +1,28 @@
+{% extends "checklist/_base.html" %}
+{% from "checklist/_fila.html" import icono with context %}
+{% block cuerpo %}
+<nav class="migas"><a href="{{ raiz }}/?lote={{ lote }}">Checklist del pliego</a><span>/</span><span>Grupo {{ lote }}</span><span>/</span><span>{{ r.titulo[:48] }}{% if r.titulo|length > 48 %}…{% endif %} · p. {{ r.pagina }}</span></nav>
+<div class="grid-5-7" style="align-items:start">
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div class="card" style="padding:24px 28px">
+      <div class="card-label">Requisito {{ CATEGORIA.get(r.categoria, r.categoria)|lower }} · sección {{ r.seccion }}</div>
+      <div style="font-size:20px;font-weight:600;letter-spacing:-.02em;margin-top:8px;line-height:1.25">{{ r.titulo }}</div>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:16px">{{ icono(r.estado) }}<span class="{{ ESTADO[r.estado][1] }}">{{ ESTADO[r.estado][0] }}</span></div>
+      <div style="font-size:15px;margin-top:14px;line-height:1.5">{{ r.detalle }}</div>
+      {% if minis %}<div class="grid-2" style="margin-top:16px">{% for etiqueta, valor in minis %}<div class="mini"><small>{{ etiqueta }}</small><b class="num" style="font-size:18px">{{ valor }}</b></div>{% endfor %}</div>{% endif %}
+      {% if fuente_doc %}<div class="card-label" style="margin-top:14px">Fuente del dato: {{ fuente_doc }} de su carpeta.</div>
+      {% elif r.documento %}<div class="card-label" style="margin-top:14px">En su carpeta no hay ningún documento de tipo «{{ r.documento.replace("_", " ") }}».</div>{% endif %}
+    </div>
+    <div class="draft" style="padding:20px 24px"><div class="kicker">Fragmento del pliego · p. {{ r.pagina }}</div>
+      <p style="margin-top:10px">«{{ r.cita }}»</p></div>
+    <div style="display:flex;gap:10px"><a class="btn" style="padding:11px 20px;font-size:14px" href="{{ raiz }}/pliego.pdf#page={{ r.pagina }}" target="_blank">Abrir el PDF completo</a>
+      <a class="btn-ghost" style="padding:11px 20px;font-size:14px" href="{{ raiz }}/requisito/{{ sig.id }}?lote={{ lote }}">Siguiente requisito →</a></div>
+  </div>
+  <div class="card" style="padding:18px;background:var(--ad-panel-2)">
+    <div class="card-head" style="margin-bottom:12px"><span class="card-label">{{ ck.proceso.pdf }} · página {{ r.pagina }} de {{ ck.proceso.paginas }}</span></div>
+    <div class="pdf"><img src="{{ raiz }}/paginas/p{{ r.pagina }}.png" alt="Página {{ r.pagina }} del pliego">
+    {% for x0, y0, x1, y1 in cajas %}<div class="marca" style="left:{{ '%.2f'|format(100 * x0) }}%;top:{{ '%.2f'|format(100 * y0) }}%;width:{{ '%.2f'|format(100 * (x1 - x0)) }}%;height:{{ '%.2f'|format(100 * (y1 - y0)) }}%"></div>{% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

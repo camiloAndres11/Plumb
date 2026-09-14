@@ -1,0 +1,30 @@
+{% extends "radar/_base.html" %}
+{% from "radar/_macros.html" import tag_sat with context %}
+{% block cuerpo %}
+<nav class="migas"><a href="{{ raiz }}/">Radar</a><span>/</span><span>Procesos abiertos</span><span>/</span><span>{{ id_proceso }}</span></nav>
+<div><div class="kicker">{{ id_proceso }} · {{ p.entidad|titulo_caso }} · {{ MODALIDAD_CORTA.get(p.modalidad, p.modalidad|titulo_caso) }} · {{ p.precio_base|mill }} · cierra en {{ p.dias_restantes }} días</div>
+<h1 class="titulo" style="font-size:26px;max-width:900px">{{ titular }}</h1><p class="mute" style="font-size:14px;margin-top:6px">{{ (p.descripcion or "")|frase|truncate(140, true, "") }}</p></div>
+<div class="grid-8-4">
+  <div class="card"><div class="card-head"><div class="card-title">Competidores probables</div><div class="card-label">peso relativo, no probabilidad calibrada</div></div>
+    <div class="rows" style="margin-top:14px">
+    {% for x in comp %}
+    <a class="rank{% if loop.first %} on{% endif %}" href="{{ raiz }}/competidor/{{ x.doc }}"><span class="n">{{ loop.index }}</span>
+    <div><b>{{ (x.nombre or x.doc)|titulo_caso }}</b><small>{% for k, v in x.razones.items() %}{% if not loop.first %} · {% endif %}{{ raz[k] % v }}{% endfor %} · {{ x.n_contratos }} contratos</small></div>
+    <span class="num" style="font-size:13px;color:var(--ad-ink-70)">{% if x.mediana_ratio %}ofrece al {{ x.mediana_ratio|pct(1) }}{% else %}sin razón conocida{% endif %}</span>
+    {{ tag_sat(x.nivel_saturacion) }}<div><div class="peso{% if loop.first %} hot{% endif %}">{{ x.peso|pct }}</div>
+    <div class="bar" style="margin-top:4px"><span style="--w:{{ '%.0f'|format(100 * x.peso / mxp) }}%"></span></div></div></a>
+    {% else %}<span class="mute">Nada que mostrar.</span>{% endfor %}
+    </div></div>
+  <div style="display:flex;flex-direction:column;gap:14px">
+    {% if e %}
+    <div class="card"><div class="card-label">La entidad</div><div style="font-size:18px;font-weight:600;margin-top:6px">Adjudica de forma {{ ETIQUETA[e.etiqueta][0] }}</div>
+    <div class="mute" style="font-size:13px;margin-top:6px">{{ e.n_proveedores }} proveedores en {{ e.n_competitivos }} procesos · {{ (e.mediana_oferentes|int) if e.mediana_oferentes else "—" }} oferentes por proceso · al {{ e.mediana_ratio|pct(1) }} del presupuesto.</div>
+    <a href="{{ raiz }}/entidad/{{ p.nit_entidad }}?tipo={{ p.tipo_contrato }}" style="display:inline-block;margin-top:12px;font-size:13px;color:var(--ad-ink-85)">Ver perfil de la entidad →</a></div>
+    {% endif %}
+    <div class="card"><div class="card-label">Cómo se calcula</div><div style="display:flex;flex-direction:column;gap:10px;margin-top:10px;font-size:13px;color:var(--ad-ink-75)">
+      <div>3 puntos por cada {{ TIPO_NOMBRE.get(p.tipo_contrato, 'contrato')|lower }} ganada en esta entidad</div><div>1 por cada una en {{ p.departamento|titulo_caso }}, misma familia UNSPSC</div>
+      <div>0,5 por cada una de la familia en el país (tope 6)</div><div>Lo de hace más de 3 años pesa la mitad</div><div>La saturación resta hasta un 50 %</div></div></div>
+  </div>
+</div>
+<p class="foot-note">"Probable" = ha ganado procesos parecidos. SECOP no publica quién se presentó y perdió; esto es lo que se puede ver, y por eso el peso es un orden, no una probabilidad. <a href="{{ p.urlproceso|url_segura }}" target="_blank" rel="noopener" style="color:var(--ad-ink-85)">Abrir en SECOP II →</a></p>
+{% endblock %}

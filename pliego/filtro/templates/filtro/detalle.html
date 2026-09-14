@@ -1,0 +1,48 @@
+{% extends "filtro/_base.html" %}
+{% block cuerpo %}
+<nav class="migas"><a href="{{ raiz }}/">Filtro de procesos</a><span>/</span><span>{{ x.id_del_proceso }}</span></nav>
+<div class="grid-5-7">
+  <div class="card" style="display:flex;flex-direction:column;justify-content:space-between;gap:24px;padding:28px">
+    <div>
+      <div class="card-label">{{ x.entidad|titulo_caso }}</div>
+      <div style="font-size:20px;font-weight:600;letter-spacing:-.02em;margin-top:8px;line-height:1.25">{{ (x.descripcion or "Sin descripción")|frase }}</div>
+      <div class="chips" style="margin-top:14px">{% for t in chips %}<span class="chip">{{ t }}</span>{% endfor %}</div>
+    </div>
+    <div>
+      <div class="kicker">Recomendación</div>
+      <div style="font-size:56px;line-height:1;font-weight:600;letter-spacing:-.04em;margin-top:8px" class="{{ 'hot' if hot else ('mute' if ev.recomendacion == NO_PRESENTARSE else '') }}">{{ texto }}</div>
+      <div style="display:flex;align-items:baseline;gap:10px;margin-top:14px"><span class="num" style="font-size:28px;font-weight:600;letter-spacing:-.03em">{{ ev.puntaje }}</span><span style="font-size:14px;color:var(--ad-ink-60)">de 100 · {{ sub }}</span></div>
+      <div class="bar bar-6 {{ 'bar-hot' if hot else '' }}" style="margin-top:12px"><span style="--w:{{ ev.puntaje }}%"></span></div>
+    </div>
+    <div class="grid-2">
+      {% if ev.horas_ahorradas %}
+      <div class="mini"><small>Se ahorra</small><b class="hot num">{{ ev.horas_ahorradas }} h</b><small>de preparar una propuesta ({{ MODALIDAD_CORTA.get(x.modalidad, "modalidad")|lower }})</small></div>
+      {% else %}
+      <div class="mini"><small>Preparar la propuesta</small><b class="num">{{ horas }} h</b><small>estimadas para {{ MODALIDAD_CORTA.get(x.modalidad, "esta modalidad")|lower }}</small></div>
+      {% endif %}
+      <div class="mini"><small>{{ 'Si igual quiere ir' if ev.recomendacion != PRESENTARSE else 'Siguiente paso' }}</small><b class="txt">{{ consejo }}</b></div>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div class="card">
+      <div class="card-head"><div class="card-title">Habilitantes</div><div class="card-label">{{ n_ok }} de {{ hab|length }} · según documentos tipo</div></div>
+      <div class="check">
+      {% for r, extra in hab %}
+      <div>{% if r.cumple is true %}<span class="check-on">{{ iconos.check }}</span>{% elif r.cumple is false %}<span class="check-off"></span>{% else %}<span class="check-dudo"></span>{% endif %}<div><div class="{{ 'falla' if r.cumple is false else '' }}">{{ r.texto }}</div>
+      {% if extra %}<div class=ev>{{ extra }}</div>{% endif %}</div></div>
+      {% endfor %}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Señales</div><div class="card-label">parten de 50 · suman o restan</div></div>
+      <div class="why">
+      {% for r in sen %}
+      <div class="{{ '' if r.cumple else ('neutro' if r.cumple is none else 'minus') }}"><span>{{ r.texto }}</span><b>{% if r.cumple is none %}±0{% elif r.peso > 0 %}+{{ r.peso }}{% else %}−{{ r.peso|abs }}{% endif %}</b></div>
+      {% else %}<div><span class="mute">Sin señales sobre esta entidad.</span></div>{% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+<p class="foot-note">Los umbrales habilitantes son los usuales de los documentos tipo de obra pública; el pliego real puede fijar otros.
+<a href="{{ x.urlproceso|url_segura }}" target="_blank" rel="noopener" style="color:var(--ad-ink-85)">Abrir el proceso en SECOP II →</a></p>
+{% endblock %}

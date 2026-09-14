@@ -1,0 +1,19 @@
+{% extends "generador/_base.html" %}
+{% from "generador/_otag.html" import otag with context %}
+{% block cuerpo %}
+<nav class="migas"><a href="{{ raiz }}/?lote={{ lote }}">Propuesta</a><span>/</span><span>Grupo {{ lote }}</span><span>/</span><span>{{ d.nombre }}</span></nav>
+<div class="cab"><div><div class="kicker">Borrador · el pliego lo exige en la p. {{ d.pagina }}</div><h1 class="titulo" style="font-size:24px">{{ d.nombre }}</h1></div>
+<div style="display:flex;gap:10px;align-items:center"><span class="{{ ESTADO[d.estado][1] }}">{{ ESTADO[d.estado][0] }}</span><a class="btn-ghost" style="padding:11px 20px;font-size:14px" href="{{ raiz }}/documento/{{ ant.id }}?lote={{ lote }}">← Anterior</a>
+<a class="btn-ghost" style="padding:11px 20px;font-size:14px" href="{{ raiz }}/documento/{{ sig.id }}?lote={{ lote }}">Siguiente →</a><a class="btn" style="padding:11px 20px;font-size:14px" href="{{ raiz }}/documento/{{ d.id }}.md?lote={{ lote }}">Descargar .md</a></div></div>
+<div class="grid-7-5" style="align-items:start">
+  <div class="papel"><div class="leyenda">Vista previa · subrayado por origen: <span style="border-bottom:2px solid #ec3013">pliego</span> · <span style="border-bottom:2px solid #8a8580">perfil</span> · <span style="border-bottom:2px solid #ffb4a0">calculado</span></div>{{ cuerpo_doc }}</div>
+  <div class="card"><div class="card-head"><div class="card-title">De dónde sale cada dato</div><div class="card-label">{{ d.campos|length }} campos · {{ d.faltantes|length }} faltan</div></div><div style="margin-top:6px">
+  {% for c, val in campos %}
+  <div class="campo"><div><small>{{ c.etiqueta }}{% if c.critico and c.origen == L.FALTANTE %} · rechazo si falta{% endif %}</small>
+  <div style="margin-top:2px;line-height:1.35" class="{{ "hot" if c.origen == L.FALTANTE else "" }}">{{ val[:90] }}{% if val|length > 90 %}…{% endif %}</div></div>
+  <div class="src">{{ otag(c.origen) }}{% if c.origen == L.PLIEGO and c.pagina %}<a href="{{ raiz }}/pliego.pdf#page={{ c.pagina }}" target="_blank">p. {{ c.pagina }} →</a>{% elif c.origen == L.PERFIL %}<span class="f">{{ c.fuente.replace("perfil.", "") }}</span>{% else %}<span class="f" title="{{ c.fuente }}">{{ c.fuente[:48] }}{% if c.fuente|length > 48 %}…{% endif %}</span>{% endif %}</div></div>
+  {% endfor %}
+  </div>
+  <div class="mute-50" style="font-size:12px;margin-top:12px">Cada "p. N" abre el pliego en esa página. Los cálculos muestran su fórmula.</div></div>
+</div>
+{% endblock %}
