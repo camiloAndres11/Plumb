@@ -12,6 +12,13 @@ enfoque es la de siempre y ni logica.py ni app.py se enteran del cambio.
 o las mismas dos variables en el `.env` de la raiz (ver .env.example; lo
 carga pliego/comun/entorno.py). Sin ellas se leen los parquet commiteados.
 
+Tres modos (activa()):
+  fixtures   los parquet de pliego/*/fixtures/ (la demo, las pruebas)
+  croma      Croma -> DuckDB EN MEMORIA para UN perfil (la demo con datos de hoy)
+  warehouse  el DuckDB EN DISCO que llena la plataforma por departamento
+             (pliego/comun/warehouse.py); cada empresa ve los departamentos
+             de su contexto (pliego/comun/contexto.py)
+
 Lo que se trae de Croma (todo a dataset, 1 credito por pagina de 100):
   - contratos SECOP II de los tipos de construccion, por departamento de
     interes del perfil, desde CROMA_DESDE_ANIO         -> `base`
@@ -74,29 +81,45 @@ DEPARTAMENTOS_SECOP = {
 
 # ------------------------------------------------------------------ conmutador
 def activa() -> str:
-    """'croma' si se pidio y hay llave; 'fixtures' en cualquier otro caso."""
-    if os.environ.get("PLIEGO_FUENTE", "").strip().lower() == "croma":
+    """'croma' si se pidio y hay llave; 'warehouse' si se pidio y hay una
+    empresa en contexto (sin contexto, p. ej. en pruebas, caen los fixtures);
+    'fixtures' en cualquier otro caso."""
+    modo = os.environ.get("PLIEGO_FUENTE", "").strip().lower()
+    if modo == "croma":
         from pliego.comun import croma
         if croma.disponible():
             return "croma"
+    if modo == "warehouse":
+        from pliego.comun import contexto
+        if contexto.get() is not None:
+            return "warehouse"
     return "fixtures"
 
 
 def hoy() -> date:
-    return date.today() if activa() == "croma" else FECHA_SNAPSHOT
+    return FECHA_SNAPSHOT if activa() == "fixtures" else date.today()
 
 
 def filas(enfoque: str, nombre: str) -> list[dict]:
     """Las filas que `pliego/<enfoque>/fixtures/<nombre>.parquet` tendria:
-    del parquet, o de Croma a traves de la misma SQL de la semilla."""
-    if activa() == "croma":
+    del parquet, o de Croma / del warehouse a traves de la misma SQL de la
+    semilla."""
+    modo = activa()
+    if modo == "croma":
         return _consultar(_SEMILLAS[(enfoque, nombre)]())
+    if modo == "warehouse":
+        from pliego.comun import contexto, warehouse
+        return warehouse.consultar(_SEMILLAS[(enfoque, nombre)](), contexto.ambito())
     return _parquet(RAIZ / enfoque / "fixtures" / f"{nombre}.parquet")
 
 
 def estado() -> dict:
     """Para mostrar en la demo o en logs: que fuente, de cuando, cuanto."""
-    if activa() != "croma":
+    modo = activa()
+    if modo == "warehouse":
+        from pliego.comun import contexto, warehouse
+        return {"fuente": "warehouse", **warehouse.estado(contexto.ambito())}
+    if modo != "croma":
         return {"fuente": "fixtures", "as_of": FECHA_SNAPSHOT.isoformat()}
     con, meta = _db()
     cur = con.cursor()
@@ -241,9 +264,10 @@ def _db_cacheada():
     })
 
 
-def _armar(contratos: list[dict], adjudicados: list[dict], abiertos: list[dict], hoy: date, meta=None):
-    """Puro (sin red): registros Croma -> tablas. Separado de _db para que
-    las pruebas lo alimenten con dicts."""
+def registros_a_filas(contratos: list[dict], adjudicados: list[dict], abiertos: list[dict], hoy: date):
+    """Puro (sin red): registros Croma -> (base, procesos, abiertos) como
+    filas del warehouse. Cada contrato se enlaza con su proceso adjudicado
+    por notice_uid (o process_id) para heredar precio base y oferentes."""
     procesos = [M.proceso_a_fila(r, hoy) for r in adjudicados]
     por_uid = {p["notice_uid"]: p for p in procesos if p.get("notice_uid")}
     por_id = {p["id_del_proceso"]: p for p in procesos if p.get("id_del_proceso")}
@@ -252,11 +276,17 @@ def _armar(contratos: list[dict], adjudicados: list[dict], abiertos: list[dict],
         uid = M.notice_uid(*(r.get(n) for n in M.ALIAS["proceso_id"]))
         pid = M.id_proceso({"process_id": r.get("process_id")}) if r.get("process_id") else None
         base.append(M.contrato_a_fila(r, por_uid.get(uid) or por_id.get(pid)))
+    return base, procesos, [M.proceso_a_fila(r, hoy) for r in abiertos]
+
+
+def _armar(contratos: list[dict], adjudicados: list[dict], abiertos: list[dict], hoy: date, meta=None):
+    """Registros Croma -> tablas en un DuckDB en memoria (modo croma).
+    Separado de _db para que las pruebas lo alimenten con dicts."""
+    base, procesos, abiertos_f = registros_a_filas(contratos, adjudicados, abiertos, hoy)
     con = duckdb.connect()
     con.register("_base", pa.Table.from_pylist(base, schema=ESQUEMA_BASE))
     con.register("_procesos", pa.Table.from_pylist(procesos, schema=ESQUEMA_PROCESO))
-    con.register("_abiertos", pa.Table.from_pylist([M.proceso_a_fila(r, hoy) for r in abiertos],
-                                                   schema=ESQUEMA_PROCESO))
+    con.register("_abiertos", pa.Table.from_pylist(abiertos_f, schema=ESQUEMA_PROCESO))
     con.execute("""
         CREATE TABLE base AS SELECT * REPLACE (
             try_cast(fecha_firma AS DATE) AS fecha_firma, try_cast(fecha_inicio AS DATE) AS fecha_inicio,
@@ -275,15 +305,19 @@ def _armar(contratos: list[dict], adjudicados: list[dict], abiertos: list[dict],
     return con, (meta or {})
 
 
-def _traer(api, perfil: dict):
-    """Las tres consultas por departamento y tipo, en paralelo y con cache
-    en disco. Cada registro lleva `_as_of` de su pagina para saber de
-    cuando es lo que se muestra."""
-    desde_anio = int(os.environ.get("CROMA_DESDE_ANIO", str(hoy().year - 4)))
-    desde = f"{desde_anio}-01-01"
-    desde_abiertos = (hoy() - timedelta(days=DIAS_ABIERTOS)).isoformat()
-    deptos = [_depto_secop(d) for d in perfil.get("departamentos_interes") or []] or [None]
-    consultas = []   # (destino, ruta, cuerpo) en el orden en que se piden
+def consultas_para(departamentos, desde: str | None = None, desde_abiertos: str | None = None) -> list[tuple]:
+    """Las tres busquedas (contratos, adjudicados, abiertos) por departamento
+    y tipo de contrato: lista de (destino, ruta, cuerpo). `desde` es la
+    fecha desde la que traer historico (por defecto CROMA_DESDE_ANIO o hace
+    4 anios); `desde_abiertos`, la de los procesos sin adjudicar (120 dias).
+    Con departamentos vacio consulta todo el pais (caro: no lo hace nadie
+    por defecto)."""
+    if desde is None:
+        desde = f"{int(os.environ.get('CROMA_DESDE_ANIO', str(hoy().year - 4)))}-01-01"
+    if desde_abiertos is None:
+        desde_abiertos = (hoy() - timedelta(days=DIAS_ABIERTOS)).isoformat()
+    deptos = [_depto_secop(d) for d in departamentos] or [None]
+    consultas = []
     for depto in deptos:
         comun = {"platform": "secop_ii"}
         if depto:
@@ -298,6 +332,13 @@ def _traer(api, perfil: dict):
                  {**comun, "contract_type": tipo, "from_date": desde_abiertos, "awarded": "no",
                   "sort": "recent"}),
             ]
+    return consultas
+
+
+def traer(api, consultas: list[tuple]):
+    """Ejecuta las consultas en paralelo y con cache en disco. Devuelve
+    (contratos, adjudicados, abiertos, errores). Cada registro lleva
+    `_as_of` de su pagina para saber de cuando es lo que se muestra."""
     salida = {"contratos": [], "adjudicados": [], "abiertos": []}
     errores = []
 
@@ -314,6 +355,11 @@ def _traer(api, perfil: dict):
         for (destino, _, _), filas in zip(consultas, pool.map(una, consultas)):
             salida[destino] += filas
     return salida["contratos"], salida["adjudicados"], salida["abiertos"], errores
+
+
+def _traer(api, perfil: dict):
+    """Modo croma: las consultas del perfil (de la demo o del contexto)."""
+    return traer(api, consultas_para(perfil.get("departamentos_interes") or []))
 
 
 def _paginas(api, ruta, cuerpo) -> list[dict]:

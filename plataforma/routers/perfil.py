@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 from pydantic import ValidationError
 
-from plataforma import db, esquemas, sesiones
+from plataforma import db, esquemas, sesiones, trabajos
 from plataforma import vistas as V
 from plataforma.catalogos import DEPARTAMENTOS, UNSPSC, UNSPSC_NOMBRE
 
@@ -39,10 +39,11 @@ def _guardar(empresa: dict, parte: dict) -> None:
     deptos = perfil.get("departamentos_interes") or []
     db.ejecutar("UPDATE pliego.empresas SET perfil = %s, departamentos = %s, perfil_completo = %s WHERE id = %s",
                 [json.dumps(perfil), deptos, completo, empresa["id"]])
-    # Los departamentos nuevos quedan pendientes de descarga (fase 3 los baja).
+    # Los departamentos nuevos quedan pendientes y se encolan para descargar.
     for d in deptos:
-        db.ejecutar("INSERT INTO pliego.descargas_departamento (departamento, estado) VALUES (%s, 'pendiente') "
-                    "ON CONFLICT (departamento) DO NOTHING", [d])
+        if db.ejecutar("INSERT INTO pliego.descargas_departamento (departamento, estado) VALUES (%s, 'pendiente') "
+                       "ON CONFLICT (departamento) DO NOTHING", [d]):
+            trabajos.encolar(d)
 
 
 def _pagina(request: Request, usuario: dict, paso: int, cuerpo_form: str, error: str | None = None) -> str:

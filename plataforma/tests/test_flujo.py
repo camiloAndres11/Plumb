@@ -20,10 +20,14 @@ pytestmark = pytest.mark.skipif(not DSN, reason="sin Postgres de pruebas (PLATAF
 
 
 @pytest.fixture(scope="module")
-def cliente():
+def cliente(tmp_path_factory):
     os.environ["DATABASE_URL"] = DSN
     os.environ.setdefault("SECRET_KEY", "clave-de-pruebas-" + "x" * 40)
     os.environ["SMTP_URL"] = ""
+    # Antes de que arranque el lifespan (que lanza los trabajos): sin llave
+    # de Croma y con warehouse temporal, para no tocar la red ni el real.
+    os.environ.pop("CROMA_API_KEY", None)
+    os.environ["PLIEGO_WAREHOUSE"] = str(tmp_path_factory.mktemp("wh") / "wh.duckdb")
     from fastapi.testclient import TestClient
 
     from plataforma import config as C
