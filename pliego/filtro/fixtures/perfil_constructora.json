@@ -1,41 +1,225 @@
 {
-  "_nota": "Perfil FICTICIO de una constructora mediana, coherente con el que muestra la landing de Pliego. No existe en el RUP. Los valores estan en COP salvo donde se indica.",
+  "_nota": "Perfil FICTICIO de Constructora Andina S.A.S., una constructora mediana coherente con la landing. No existe en el RUP. Es el UNICO perfil de fixtures: el filtro, el radar, el simulador y el generador lo leen de aqui, y la plataforma guarda exactamente esta forma (plataforma/esquemas.py) mas lo que la empresa declara en /empresa/documentos. Los valores estan en COP salvo donde se indica.",
   "nombre": "Constructora Andina S.A.S.",
   "nit": "900123456-7",
-  "sede": {"ciudad": "BUCARAMANGA", "departamento": "SANTANDER"},
-  "departamentos_interes": ["SANTANDER", "BOYACA", "NORTE DE SANTANDER"],
-  "rup": {"vigente": true, "renovado": "2026-04-30"},
+  "sede": {
+    "ciudad": "BUCARAMANGA",
+    "departamento": "SANTANDER"
+  },
+  "departamentos_interes": [
+    "SANTANDER",
+    "BOYACA",
+    "NORTE DE SANTANDER"
+  ],
+  "rup": {
+    "fecha_expedicion": "2021-06-18",
+    "vigente": true,
+    "en_firme": true,
+    "contratos": [
+      {
+        "consecutivo": 12,
+        "objeto": "Pavimentación vía terciaria Girón – El Roble",
+        "entidad": "Alcaldía de Girón",
+        "actividades": [
+          "vias"
+        ],
+        "valor_smmlv": 1240,
+        "terminado": true,
+        "anio": 2024
+      },
+      {
+        "consecutivo": 9,
+        "objeto": "Adecuación y ampliación salón comunal barrio La Cumbre",
+        "entidad": "Alcaldía de Floridablanca",
+        "actividades": [
+          "edificaciones"
+        ],
+        "valor_smmlv": 640,
+        "terminado": true,
+        "anio": 2023
+      },
+      {
+        "consecutivo": 15,
+        "objeto": "Aula múltiple I.E. San Isidro",
+        "entidad": "Alcaldía de Piedecuesta",
+        "actividades": [
+          "edificaciones"
+        ],
+        "valor_smmlv": 890,
+        "terminado": false,
+        "anio": 2025
+      },
+      {
+        "consecutivo": 7,
+        "objeto": "Parque lineal y andenes barrio Provenza",
+        "entidad": "Alcaldía de Bucaramanga",
+        "actividades": [
+          "espacio_publico"
+        ],
+        "valor_smmlv": 380,
+        "terminado": true,
+        "anio": 2022
+      },
+      {
+        "consecutivo": 4,
+        "objeto": "Adecuación puesto de salud El Centro",
+        "entidad": "Gobernación de Santander",
+        "actividades": [
+          "edificaciones"
+        ],
+        "valor_smmlv": 420,
+        "terminado": true,
+        "anio": 2022
+      }
+    ],
+    "renovado": "2026-04-30"
+  },
   "unspsc": [
-    "V1.72141000", "V1.72141100", "V1.72141003",
-    "V1.72121400", "V1.72101500", "V1.72101507", "V1.72102900",
-    "V1.72151800", "V1.72151900"
+    "V1.72141000",
+    "V1.72141100",
+    "V1.72141003",
+    "V1.72121400",
+    "V1.72101500",
+    "V1.72101507",
+    "V1.72102900",
+    "V1.72151800",
+    "V1.72151900"
   ],
   "experiencia": [
-    {"objeto": "Pavimentacion via terciaria Giron - El Roble", "entidad": "ALCALDIA DE GIRON",
-     "unspsc": "V1.72141000", "valor_smmlv": 1240, "anio": 2024, "liquidado": true},
-    {"objeto": "Placa huella veredas La Mesa y Chocoa", "entidad": "ALCALDIA DE GIRON",
-     "unspsc": "V1.72141100", "valor_smmlv": 610, "anio": 2023, "liquidado": true},
-    {"objeto": "Mejoramiento via Barbosa - Velez", "entidad": "GOBERNACION DE SANTANDER",
-     "unspsc": "V1.72141000", "valor_smmlv": 1780, "anio": 2023, "liquidado": true},
-    {"objeto": "Aula multiple I.E. San Isidro", "entidad": "ALCALDIA DE PIEDECUESTA",
-     "unspsc": "V1.72121400", "valor_smmlv": 890, "anio": 2025, "liquidado": false},
-    {"objeto": "Adecuacion puesto de salud El Centro", "entidad": "GOBERNACION DE SANTANDER",
-     "unspsc": "V1.72101500", "valor_smmlv": 420, "anio": 2022, "liquidado": true},
-    {"objeto": "Acueducto veredal Llanito fase I", "entidad": "ESP BARRANCABERMEJA",
-     "unspsc": "V1.72151800", "valor_smmlv": 560, "anio": 2022, "liquidado": true}
+    {
+      "objeto": "Pavimentacion via terciaria Giron - El Roble",
+      "entidad": "ALCALDIA DE GIRON",
+      "unspsc": "V1.72141000",
+      "valor_smmlv": 1240,
+      "anio": 2024,
+      "liquidado": true
+    },
+    {
+      "objeto": "Placa huella veredas La Mesa y Chocoa",
+      "entidad": "ALCALDIA DE GIRON",
+      "unspsc": "V1.72141100",
+      "valor_smmlv": 610,
+      "anio": 2023,
+      "liquidado": true
+    },
+    {
+      "objeto": "Mejoramiento via Barbosa - Velez",
+      "entidad": "GOBERNACION DE SANTANDER",
+      "unspsc": "V1.72141000",
+      "valor_smmlv": 1780,
+      "anio": 2023,
+      "liquidado": true
+    },
+    {
+      "objeto": "Aula multiple I.E. San Isidro",
+      "entidad": "ALCALDIA DE PIEDECUESTA",
+      "unspsc": "V1.72121400",
+      "valor_smmlv": 890,
+      "anio": 2025,
+      "liquidado": false
+    },
+    {
+      "objeto": "Adecuacion puesto de salud El Centro",
+      "entidad": "GOBERNACION DE SANTANDER",
+      "unspsc": "V1.72101500",
+      "valor_smmlv": 420,
+      "anio": 2022,
+      "liquidado": true
+    },
+    {
+      "objeto": "Acueducto veredal Llanito fase I",
+      "entidad": "ESP BARRANCABERMEJA",
+      "unspsc": "V1.72151800",
+      "valor_smmlv": 560,
+      "anio": 2022,
+      "liquidado": true
+    }
   ],
   "financiero": {
+    "corte": "2020-12-31",
+    "activo_corriente": 3100000000,
+    "pasivo_corriente": 1720000000,
+    "pasivo_total": 3900000000,
+    "activo_total": 7100000000,
+    "utilidad_operacional": 510000000,
+    "gastos_interes": 160000000,
+    "patrimonio": 3200000000,
+    "contador": "Jorge Andrés Pinto Cala",
+    "tarjeta_contador": "T.P. 98765-T",
+    "revisor_fiscal": "María Fernanda Ortiz Lizcano",
     "liquidez": 1.8,
     "endeudamiento": 0.55,
     "cobertura_intereses": 3.2,
-    "patrimonio": 4200000000,
-    "capital_trabajo": 1900000000
+    "capital_trabajo": 1380000000
   },
   "organizacional": {
-    "rentabilidad_patrimonio": 0.12,
-    "rentabilidad_activo": 0.06
+    "rentabilidad_patrimonio": 0.159,
+    "rentabilidad_activo": 0.072
   },
   "capacidad_residual": 3800000000,
   "contratos_en_ejecucion": 2,
-  "cuantia_objetivo": {"min": 500000000, "max": 3000000000}
+  "cuantia_objetivo": {
+    "min": 500000000,
+    "max": 3000000000
+  },
+  "tipo_proponente": "individual",
+  "ciudad": "Bucaramanga",
+  "direccion": "Carrera 27 # 36-14, oficina 502",
+  "telefono": "(607) 634 20 10",
+  "correo": "licitaciones@constructoraandina.co",
+  "representante_legal": {
+    "nombre": "Laura Milena Rueda Gómez",
+    "cedula": "63.512.887",
+    "cargo": "Gerente general",
+    "profesion": "Ingeniera Civil",
+    "tarjeta_profesional": "68202-123456 STD",
+    "vigencia_matricula": "2026-11-30"
+  },
+  "avalador": null,
+  "camara_comercio": {
+    "fecha_expedicion": "2021-06-25",
+    "duracion_hasta": "2035-12-31"
+  },
+  "seguridad_social": {
+    "al_dia": true,
+    "meses_certificados": 6,
+    "firma": "revisor fiscal"
+  },
+  "industria_nacional": {
+    "origen_servicios": "nacional",
+    "personal_nacional_pct": 1.0
+  },
+  "discapacidad": {
+    "certificado_mintrabajo": null
+  },
+  "factor_calidad": {
+    "plan_gerencia_proyectos": null
+  },
+  "capacidad_residual_detalle": {
+    "experiencia_e": 120,
+    "capacidad_financiera_cf": 40,
+    "capacidad_tecnica_ct": 40,
+    "capacidad_organizacion_co": 3800000000,
+    "contratos_en_ejecucion": [
+      {
+        "objeto": "Aula múltiple I.E. San Isidro",
+        "entidad": "Alcaldía de Piedecuesta",
+        "valor": 1558000000,
+        "plazo_dias": 240,
+        "fecha_inicio": "2025-03-01",
+        "saldo": 620000000,
+        "participacion": 1.0
+      },
+      {
+        "objeto": "Mantenimiento vías Lebrija",
+        "entidad": "Alcaldía de Lebrija",
+        "valor": 980000000,
+        "plazo_dias": 180,
+        "fecha_inicio": "2025-05-15",
+        "saldo": 410000000,
+        "participacion": 1.0
+      }
+    ],
+    "crp": 3800000000
+  }
 }

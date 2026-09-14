@@ -72,7 +72,7 @@ def test_extraer_produce_las_formas_de_los_fixtures(tmp_path):
     ctx = {"smmlv": req["proceso"]["smmlv"], "anticipo_pct": req["proceso"]["anticipo_pct"], "fecha_cierre": date(2021, 7, 6)}
     vs = LC.verificar_todo(req["requisitos"], carpeta_["documentos"], ctx, req["proceso"]["lotes"][0])
     assert len(vs) == 20
-    perfil = json.loads((FIX_GEN / "perfil_constructora.json").read_text(encoding="utf-8"))
+    perfil = json.loads((RAIZ / "pliego" / "filtro" / "fixtures" / "perfil_constructora.json").read_text(encoding="utf-8"))
     gen["fecha_cierre"] = "2021-07-06"
     docs = LG.generar_todo(gen, perfil, gen["lotes"][0], date(2021, 7, 6))
     assert len(docs) >= 8
@@ -104,7 +104,7 @@ def test_carpeta_desde_el_perfil():
     assert d["carta_presentacion"]["firmada"] and "camara_comercio" not in d
     assert d["rup"]["vigente"] and len(d["rup"]["contratos"]) == 6
     assert d["rup"]["contratos"][0]["actividades"] == ["vias"] and d["rup"]["contratos"][3]["actividades"] == ["edificaciones"]
-    assert d["estados_financieros"]["liquidez"] == 1.8 and d["estados_financieros"]["activo_corriente"] == 1.9e9
+    assert d["estados_financieros"]["liquidez"] == 1.8 and d["estados_financieros"]["activo_corriente"] == 3.1e9
     assert d["formato5_capacidad_residual"]["capacidad_residual"] == 3.8e9
 
 

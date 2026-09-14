@@ -6,7 +6,7 @@
     <div class="grid-2" style="margin-top:16px">
       <div class="mini"><small>NIT</small><b class="txt">{{ p.nit }}</b></div><div class="mini"><small>Representante legal</small><b class="txt">{{ rl.nombre }} · {{ rl.profesion }}</b></div>
       <div class="mini"><small>Dirección</small><b class="txt">{{ p.direccion }}, {{ p.ciudad }}</b></div><div class="mini"><small>Correo</small><b class="txt">{{ p.correo }}</b></div>
-      <div class="mini"><small>Capacidad residual</small><b class="num">{{ p.capacidad_residual.crp|mill }}</b></div><div class="mini"><small>Estados financieros</small><b class="txt">corte {{ f.corte }} · {{ f.revisor_fiscal }}</b></div>
+      <div class="mini"><small>Capacidad residual</small><b class="num">{{ (p.capacidad_residual.crp if p.capacidad_residual is mapping else p.capacidad_residual)|mill }}</b></div><div class="mini"><small>Estados financieros</small><b class="txt">corte {{ f.corte }} · {{ f.revisor_fiscal }}</b></div>
     </div></div>
   <div class="card"><div class="card-head"><div class="card-title">Contratos en el RUP</div><div class="card-label">{{ p.rup.contratos|length }} · expedido {{ p.rup.fecha_expedicion }}</div></div>
     <table class="tabla" style="margin-top:12px"><thead><tr><th>#</th><th>Objeto</th><th>Entidad</th><th class="num">SMMLV</th><th>Terminado</th></tr></thead><tbody>

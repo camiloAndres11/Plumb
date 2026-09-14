@@ -16,7 +16,10 @@ def test_el_perfil_ficticio_valida_entero():
     perfil = json.loads(FIXTURE.read_text(encoding="utf-8"))
     p = E.PerfilEmpresa.model_validate(perfil)
     assert E.perfil_completo(perfil)
-    assert set(p.como_dict()) == set(perfil) - {"_nota"}
+    # El fixture trae ademas lo que la empresa declara en /empresa/documentos
+    # (representante legal, direccion, estados financieros...): el esquema
+    # del wizard es un subconjunto.
+    assert set(p.como_dict()) <= set(perfil) - {"_nota"}
 
 
 def test_paso_sede_normaliza_y_deduplica():

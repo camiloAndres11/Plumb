@@ -236,12 +236,13 @@ Certifican: {f.get('contador') or '[CONTADOR]'} ({f.get('tarjeta_contador') or '
 
 
 def formato5(pliego, perfil, lote, hoy) -> Documento:
-    cr = perfil.get("capacidad_residual", {})
+    # `capacidad_residual` es un numero (la CRP ya calculada, la forma de la
+    # plataforma); el detalle del Formato 5 (contratos en ejecucion, K de
+    # experiencia...) va aparte en `capacidad_residual_detalle` si existe.
+    cr = perfil.get("capacidad_residual_detalle") or perfil.get("capacidad_residual", {})
     if not isinstance(cr, dict):
-        # El perfil de la plataforma trae la capacidad residual como un
-        # numero (la CRP ya calculada), sin el detalle del Formato 5.
-        perfil = {**perfil, "capacidad_residual": {"crp": cr, "contratos_en_ejecucion": []}}
-        cr = perfil["capacidad_residual"]
+        cr = {"crp": cr, "contratos_en_ejecucion": []}
+    perfil = {**perfil, "capacidad_residual": cr}
     campos = [_lote(lote, "presupuesto", "Presupuesto oficial del grupo"), _lote(lote, "plazo_meses", "Plazo"),
               _p(pliego, "anticipo_pct", "Anticipo"),
               _f(perfil, "capacidad_residual.contratos_en_ejecucion", "Contratos en ejecución", critico=True, clave="ejecucion"),

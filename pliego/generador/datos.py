@@ -48,7 +48,8 @@ def perfil() -> dict:
 
 @lru_cache(maxsize=1)
 def _perfil_fixture() -> dict:
-    return json.loads((FIXTURES / "perfil_constructora.json").read_text(encoding="utf-8"))
+    # El unico perfil ficticio vive con el filtro (plataforma/esquemas.py tiene su forma).
+    return json.loads((FIXTURES.parent.parent / "filtro" / "fixtures" / "perfil_constructora.json").read_text(encoding="utf-8"))
 
 
 def fecha_cierre() -> date:
