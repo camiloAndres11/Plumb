@@ -25,7 +25,9 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from pliego.checklist.app import app as checklist_app
+from pliego.comun import fuente
 from pliego.comun import web as W
+from pliego.filtro import datos as filtro_datos
 from pliego.filtro.app import app as filtro_app
 from pliego.generador.app import app as generador_app
 from pliego.radar.app import app as radar_app
@@ -198,6 +200,14 @@ def login():
 """
 
 
+MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
+         "septiembre", "octubre", "noviembre", "diciembre"]
+
+
+def _fecha_larga(d) -> str:
+    return f"{d.day} de {MESES[d.month - 1]}"
+
+
 @app.get("/panel", response_class=HTMLResponse)
 def panel():
     tarjetas = ""
@@ -209,18 +219,29 @@ def panel():
   <div><div class="pn-cifra num{' hot' if hot else ''}">{W.h(cifra)}</div><div class="pn-sub">{W.h(sub)}</div>
   <div class="pn-abrir"><span>Abrir</span><span>→</span></div></div></a>"""
     items = [(f"/{r}/", ic, n) for r, n, _, _, _, ic in ENFOQUES]
+    # De donde salen los datos: el snapshot commiteado o Croma (ver
+    # pliego/comun/fuente.py). El panel lo dice para que nadie confunda uno
+    # con otro en una demo.
+    est = fuente.estado()
+    n_abiertos = len(filtro_datos.procesos())
+    if est["fuente"] == "croma":
+        kicker = f"Hoy · {_fecha_larga(fuente.hoy())} · datos de Croma al {W.h(str(est.get('as_of'))[:10])}"
+        origen = f"Datos públicos del SECOP II vía Croma (as_of {W.h(str(est.get('as_of'))[:10])}, {est.get('llamadas')} consultas, {est.get('creditos_restantes')} créditos restantes)."
+    else:
+        kicker = f"Hoy · {_fecha_larga(fuente.hoy())} · 6:00 a. m. (snapshot)"
+        origen = f"Datos públicos del SECOP II (snapshot {fuente.hoy().isoformat()})."
     side = _SIDEBAR_ORIGINAL(items, "/panel", (
         '<div class="side-foot"><div class="kicker">Sesión</div><b>Constructora Andina S.A.S.</b>'
         '<small>licitaciones@constructoraandina.co</small><a href="/" style="display:inline-block;margin-top:10px;font-size:12px;color:var(--ad-ink-70)">Salir →</a></div>'))
     cuerpo = f"""
-<div class="cab"><div><div class="kicker">Hoy · 22 de agosto · 6:00 a. m. (snapshot)</div>
+<div class="cab"><div><div class="kicker">{kicker}</div>
 <h1 class="titulo">Buenos días, Constructora Andina. Cinco maneras de ganar más obra.</h1>
 <p class="mute" style="font-size:14px;margin-top:6px">Cada tarjeta es un enfoque de producto; todos corren sobre los mismos datos públicos del SECOP II.</p></div>
-<span class="badge"><span class="dot"></span>565 procesos abiertos en el snapshot</span></div>
+<span class="badge"><span class="dot"></span>{n_abiertos} procesos abiertos {'ahora' if est['fuente'] == 'croma' else 'en el snapshot'}</span></div>
 <div class="pn-grid">{tarjetas}
   <div class="pn-nota"><div class="kicker">Para el equipo</div><p style="margin:0">El flujo completo: landing → Ingresar → login → Iniciar → este panel → cada enfoque. Cada uno tiene su <code>ENFOQUE.md</code> en <code>docs/enfoques/</code> con lo que está simulado y las preguntas abiertas.</p></div>
 </div>
-<p class="foot-note">Datos públicos del SECOP II (snapshot 2026-08-22). Perfil de constructora ficticio. Las probabilidades y recomendaciones son estimaciones; no garantizan un resultado.</p>
+<p class="foot-note">{origen} Perfil de constructora ficticio. Las probabilidades y recomendaciones son estimaciones; no garantizan un resultado.</p>
 """
     css = """<style>
 .pn-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; }

@@ -1,41 +1,35 @@
-"""Carga de fixtures del simulador y funciones de servicio (con cache)."""
+"""Carga de datos del simulador y funciones de servicio (con cache).
+
+Las filas vienen de pliego/comun/fuente: fixtures o Croma, mismo esquema.
+"""
 from __future__ import annotations
 
 import random
-from datetime import date
 from functools import lru_cache
-from pathlib import Path
 
-import duckdb
-
+from pliego.comun import fuente
 from pliego.simulador import logica
 from pliego.simulador.metodos import VERSIONES, VERSION_DEFECTO
 
-FIXTURES = Path(__file__).resolve().parent / "fixtures"
-FECHA_SNAPSHOT = date(2026, 8, 22)
-
 
 def _filas(nombre: str) -> list[dict]:
-    cur = duckdb.connect().execute(f"SELECT * FROM '{FIXTURES / nombre}'")
-    cols = [d[0] for d in cur.description]
-    out = []
-    for t in cur.fetchall():
-        f = dict(zip(cols, t))
-        for k, v in f.items():
-            if isinstance(v, date):
-                f[k] = v.isoformat()
-        out.append(f)
-    return out
+    return fuente.filas("simulador", nombre)
+
+
+def fecha_snapshot():
+    """La fecha de los datos que se muestran: la del snapshot con fixtures,
+    la de hoy con Croma."""
+    return fuente.hoy()
 
 
 @lru_cache(maxsize=1)
 def historico() -> list[dict]:
-    return _filas("historico.parquet")
+    return _filas("historico")
 
 
 @lru_cache(maxsize=1)
 def abiertos() -> list[dict]:
-    return _filas("abiertos.parquet")
+    return _filas("abiertos")
 
 
 def proceso(id_proceso: str) -> dict | None:

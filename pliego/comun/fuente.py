@@ -1,0 +1,305 @@
+"""De donde salen las filas de los enfoques: fixtures (parquet) o Croma.
+
+Los datos.py de filtro, radar y simulador no leen SECOP: leen parquet que
+sus semilla.py generan con SQL sobre dos tablas del warehouse, `base`
+(contratos de construccion) y `alertas` (procesos abiertos con banderas).
+Este modulo arma esas dos tablas en un DuckDB en memoria a partir de Croma
+y corre LAS MISMAS SQL de las semillas, asi que la fila que recibe cada
+enfoque es la de siempre y ni logica.py ni app.py se enteran del cambio.
+
+    PLIEGO_FUENTE=croma CROMA_API_KEY=croma_live_... uvicorn demo.app:app
+
+Sin esas variables se leen los parquet commiteados, como hasta ahora.
+
+Lo que se trae de Croma (todo a dataset, 1 credito por pagina de 100):
+  - contratos SECOP II de los tipos de construccion, por departamento de
+    interes del perfil, desde CROMA_DESDE_ANIO         -> `base`
+  - procesos adjudicados con los mismos filtros: de ahi salen precio base,
+    oferentes y ventana de cada contrato (el contrato no los trae) y el p10
+    de dias de ventana por modalidad                   -> `procesos`
+  - procesos sin adjudicar publicados en los ultimos 120 dias
+                                                       -> `alertas`
+Con el perfil de la demo (3 departamentos x 3 tipos x 4 anios) son del
+orden de 100-300 creditos en frio; el plan Free trae 5.000 al mes.
+
+Banderas de `alertas` que NO se pueden calcular con Croma y quedan en NULL
+(la logica del filtro ya trata NULL como "no se sabe"): f_al_tope_minima
+(pide el p99 de minima cuantia por entidad y anio, que no esta en lo
+traido) y f_cierre_movido (pide el snapshot de ayer). Ver
+docs/enfoques/croma.md.
+"""
+from __future__ import annotations
+
+import json
+import os
+import threading
+from datetime import date, timedelta
+from functools import lru_cache
+from pathlib import Path
+
+import duckdb
+import pyarrow as pa
+
+from pliego.comun import mapeo_croma as M
+
+RAIZ = Path(__file__).resolve().parents[1]
+# Los fixtures se calcularon contra esta fecha; con fixtures es "hoy".
+FECHA_SNAPSHOT = date(2026, 8, 22)
+TIPOS_CONSTRUCCION = ("Obra", "Interventoría", "Consultoría")
+DIAS_ABIERTOS = 120   # cuan atras buscar procesos sin adjudicar
+
+# Croma filtra `department` "como SECOP lo escribe"; el perfil lo guarda
+# normalizado (MAYUSCULAS sin tildes). Los que no esten aqui se pasan en
+# Tipo Oracion, que acierta para la mayoria de departamentos.
+DEPARTAMENTOS_SECOP = {
+    "BOGOTA D.C.": "Bogotá D.C.", "BOGOTA": "Bogotá D.C.", "DISTRITO CAPITAL DE BOGOTA": "Bogotá D.C.",
+    "NORTE DE SANTANDER": "Norte de Santander", "VALLE DEL CAUCA": "Valle del Cauca",
+    "BOYACA": "Boyacá", "ATLANTICO": "Atlántico", "BOLIVAR": "Bolívar", "CORDOBA": "Córdoba",
+    "CAQUETA": "Caquetá", "CHOCO": "Chocó", "GUAINIA": "Guainía", "VAUPES": "Vaupés",
+    "QUINDIO": "Quindío", "NARINO": "Nariño",
+    "SAN ANDRES, PROVIDENCIA Y SANTA CATALINA": "San Andrés, Providencia y Santa Catalina",
+}
+
+
+# ------------------------------------------------------------------ conmutador
+def activa() -> str:
+    """'croma' si se pidio y hay llave; 'fixtures' en cualquier otro caso."""
+    if os.environ.get("PLIEGO_FUENTE", "").strip().lower() == "croma":
+        from pliego.comun import croma
+        if croma.disponible():
+            return "croma"
+    return "fixtures"
+
+
+def hoy() -> date:
+    return date.today() if activa() == "croma" else FECHA_SNAPSHOT
+
+
+def filas(enfoque: str, nombre: str) -> list[dict]:
+    """Las filas que `pliego/<enfoque>/fixtures/<nombre>.parquet` tendria:
+    del parquet, o de Croma a traves de la misma SQL de la semilla."""
+    if activa() == "croma":
+        return _consultar(_SEMILLAS[(enfoque, nombre)]())
+    return _parquet(RAIZ / enfoque / "fixtures" / f"{nombre}.parquet")
+
+
+def estado() -> dict:
+    """Para mostrar en la demo o en logs: que fuente, de cuando, cuanto."""
+    if activa() != "croma":
+        return {"fuente": "fixtures", "as_of": FECHA_SNAPSHOT.isoformat()}
+    con, meta = _db()
+    cur = con.cursor()
+    n_base = cur.execute("SELECT count(*) FROM base").fetchone()[0]
+    n_abiertos = cur.execute("SELECT count(*) FROM alertas WHERE universo = 'accionable'").fetchone()[0]
+    return {"fuente": "croma", **meta, "n_base": n_base, "n_abiertos": n_abiertos}
+
+
+# ---------------------------------------------------------------- las SQL
+def _sql(modulo: str, constante: str):
+    def carga():
+        import importlib
+        return getattr(importlib.import_module(f"pliego.{modulo}.semilla"), constante)
+    return carga
+
+
+_SEMILLAS = {
+    ("filtro", "procesos_abiertos"): _sql("filtro", "PROCESOS"),
+    ("filtro", "entidades_historial"): _sql("filtro", "ENTIDADES"),
+    ("filtro", "entidad_familia"): _sql("filtro", "ENTIDAD_FAMILIA"),
+    ("filtro", "unspsc_frecuencia"): _sql("filtro", "UNSPSC"),
+    ("radar", "contratos"): _sql("radar", "CONTRATOS"),
+    ("radar", "abiertos"): _sql("radar", "ABIERTOS"),
+    ("simulador", "historico"): _sql("simulador", "HISTORICO"),
+    ("simulador", "abiertos"): _sql("simulador", "ABIERTOS"),
+}
+
+
+def _parquet(ruta: Path) -> list[dict]:
+    cur = duckdb.connect().execute(f"SELECT * FROM '{ruta}'")
+    return _dicts(cur)
+
+
+def _consultar(sql: str) -> list[dict]:
+    con, _ = _db()
+    # Un cursor por consulta: una conexion DuckDB no se comparte entre hilos
+    # (el simulador precalienta en uno mientras la web responde en otro) y
+    # compartirla devuelve resultados vacios al azar.
+    return _dicts(con.cursor().execute(sql))
+
+
+def _dicts(cur) -> list[dict]:
+    cols = [d[0] for d in cur.description]
+    out = []
+    for t in cur.fetchall():
+        f = dict(zip(cols, t))
+        for k, v in f.items():
+            if isinstance(v, date):
+                f[k] = v.isoformat()
+        out.append(f)
+    return out
+
+
+# ------------------------------------------------------------ Croma -> DuckDB
+ESQUEMA_BASE = pa.schema([
+    ("id_contrato", pa.string()), ("notice_uid", pa.string()), ("nit_entidad", pa.string()),
+    ("entidad", pa.string()), ("departamento", pa.string()), ("ciudad", pa.string()),
+    ("orden", pa.string()), ("modalidad", pa.string()), ("tipo_contrato", pa.string()),
+    ("unspsc", pa.string()), ("descripcion", pa.string()), ("precio_base", pa.float64()),
+    ("valor_adjudicado", pa.float64()), ("valor_plausible", pa.float64()),
+    ("n_oferentes_unicos", pa.int64()), ("n_respuestas", pa.int64()),
+    ("fecha_firma", pa.string()), ("fecha_inicio", pa.string()), ("fecha_fin", pa.string()),
+    ("fecha_cierre_ofertas", pa.string()), ("estado", pa.string()), ("anio", pa.int64()),
+    ("doc_proveedor", pa.string()), ("proveedor", pa.string()), ("es_grupo", pa.string()),
+    ("valor_pagado", pa.float64()), ("valor_pend_ejecucion", pa.float64()),
+])
+
+ESQUEMA_PROCESO = pa.schema([
+    ("id_del_proceso", pa.string()), ("notice_uid", pa.string()), ("urlproceso", pa.string()),
+    ("nit_entidad", pa.string()), ("entidad", pa.string()), ("departamento", pa.string()),
+    ("ciudad", pa.string()), ("tipo_contrato", pa.string()), ("modalidad", pa.string()),
+    ("unspsc", pa.string()), ("descripcion", pa.string()), ("precio_base", pa.float64()),
+    ("valor_adjudicado", pa.float64()), ("adjudicado", pa.bool_()),
+    ("n_invitados", pa.int64()), ("n_manifestaron", pa.int64()), ("n_respuestas", pa.int64()),
+    ("n_oferentes_unicos", pa.int64()), ("fecha_publicacion", pa.string()),
+    ("fecha_cierre", pa.string()), ("fecha_adjudicacion", pa.string()),
+    ("dias_ventana", pa.int64()), ("dias_restantes", pa.int64()),
+])
+
+# Las banderas del filtro, con la misma definicion que sql/30_procesos_abiertos.sql
+# pero sobre lo que Croma deja calcular. `procesos` son los adjudicados (para
+# el p10 de ventana por modalidad); `base` da el historial de proponente unico.
+SQL_ALERTAS = """
+CREATE OR REPLACE TABLE base_ventana AS
+SELECT modalidad, quantile_cont(dias_ventana, 0.10) AS p10, count(*) AS n
+FROM procesos WHERE dias_ventana IS NOT NULL AND dias_ventana >= 0
+GROUP BY 1 HAVING count(*) >= 5;
+
+CREATE OR REPLACE TABLE hist_unico AS
+SELECT nit_entidad,
+       avg(CASE WHEN n_oferentes_unicos <= 1 THEN 1 ELSE 0 END) AS tasa,
+       count(*) AS n_historico
+FROM base
+WHERE n_oferentes_unicos IS NOT NULL AND modalidad NOT LIKE 'CONTRATACION DIRECTA%'
+GROUP BY 1 HAVING count(*) >= 5;
+
+CREATE OR REPLACE TABLE alertas AS
+SELECT a.*,
+       CASE WHEN a.fecha_cierre IS NULL THEN 'sin_fecha_cierre'
+            WHEN a.dias_restantes < 0 THEN 'cierre_vencido'
+            ELSE 'accionable' END                                            AS universo,
+       (a.dias_ventana IS NOT NULL AND v.p10 IS NOT NULL AND a.dias_ventana <= v.p10) AS f_ventana_corta,
+       CAST(NULL AS BOOLEAN)                                                 AS f_al_tope_minima,
+       (h.tasa >= 0.80)                                                      AS f_historial_proponente_unico,
+       h.tasa                                                                AS ev_tasa_historica_entidad,
+       h.n_historico                                                         AS ev_n_historico_entidad,
+       (coalesce(a.n_invitados, 0) >= 5 AND coalesce(a.n_manifestaron, 0) = 0
+          AND a.dias_restantes BETWEEN 0 AND 7)                              AS f_sin_interes_a_tiempo,
+       CAST(NULL AS BOOLEAN)                                                 AS f_cierre_movido,
+       ( coalesce((a.dias_ventana IS NOT NULL AND v.p10 IS NOT NULL AND a.dias_ventana <= v.p10)::INT, 0)
+       + coalesce((h.tasa >= 0.80)::INT, 0)
+       + coalesce((coalesce(a.n_invitados, 0) >= 5 AND coalesce(a.n_manifestaron, 0) = 0
+                   AND a.dias_restantes BETWEEN 0 AND 7)::INT, 0) )          AS n_banderas
+FROM abiertos a
+LEFT JOIN base_ventana v ON v.modalidad = a.modalidad
+LEFT JOIN hist_unico h ON h.nit_entidad = a.nit_entidad;
+"""
+
+
+_CANDADO = threading.Lock()
+
+
+def _db():
+    """El DuckDB en memoria con `base`, `procesos`, `abiertos` y `alertas`
+    armadas desde Croma. Se construye una vez por proceso: el candado es
+    porque el simulador precalienta en un hilo al importar y, sin el, dos
+    hilos descargarian todo a la vez (el doble de creditos)."""
+    with _CANDADO:
+        return _db_cacheada()
+
+
+@lru_cache(maxsize=1)
+def _db_cacheada():
+    from pliego.comun import croma
+    api = croma.CromaCliente()
+    perfil = _perfil()
+    contratos, adjudicados, abiertos = _traer(api, perfil)
+    return _armar(contratos, adjudicados, abiertos, hoy(), meta={
+        "as_of": max((p.get("_as_of") or "" for p in adjudicados + abiertos), default=None),
+        "creditos_restantes": api.creditos_restantes, "llamadas": api.llamadas,
+    })
+
+
+def _armar(contratos: list[dict], adjudicados: list[dict], abiertos: list[dict], hoy: date, meta=None):
+    """Puro (sin red): registros Croma -> tablas. Separado de _db para que
+    las pruebas lo alimenten con dicts."""
+    procesos = [M.proceso_a_fila(r, hoy) for r in adjudicados]
+    por_uid = {p["notice_uid"]: p for p in procesos if p.get("notice_uid")}
+    por_id = {p["id_del_proceso"]: p for p in procesos if p.get("id_del_proceso")}
+    base = []
+    for r in contratos:
+        uid = M.notice_uid(*(r.get(n) for n in M.ALIAS["proceso_id"]))
+        pid = M.id_proceso({"process_id": r.get("process_id")}) if r.get("process_id") else None
+        base.append(M.contrato_a_fila(r, por_uid.get(uid) or por_id.get(pid)))
+    con = duckdb.connect()
+    con.register("_base", pa.Table.from_pylist(base, schema=ESQUEMA_BASE))
+    con.register("_procesos", pa.Table.from_pylist(procesos, schema=ESQUEMA_PROCESO))
+    con.register("_abiertos", pa.Table.from_pylist([M.proceso_a_fila(r, hoy) for r in abiertos],
+                                                   schema=ESQUEMA_PROCESO))
+    con.execute("""
+        CREATE TABLE base AS SELECT * REPLACE (
+            try_cast(fecha_firma AS DATE) AS fecha_firma, try_cast(fecha_inicio AS DATE) AS fecha_inicio,
+            try_cast(fecha_fin AS DATE) AS fecha_fin,
+            try_cast(fecha_cierre_ofertas AS DATE) AS fecha_cierre_ofertas) FROM _base;
+        CREATE TABLE procesos AS SELECT * REPLACE (
+            try_cast(fecha_publicacion AS DATE) AS fecha_publicacion,
+            try_cast(fecha_cierre AS DATE) AS fecha_cierre,
+            try_cast(fecha_adjudicacion AS DATE) AS fecha_adjudicacion) FROM _procesos;
+        CREATE TABLE abiertos AS SELECT * REPLACE (
+            try_cast(fecha_publicacion AS DATE) AS fecha_publicacion,
+            try_cast(fecha_cierre AS DATE) AS fecha_cierre,
+            try_cast(fecha_adjudicacion AS DATE) AS fecha_adjudicacion) FROM _abiertos;
+    """)
+    con.execute(SQL_ALERTAS)
+    return con, (meta or {})
+
+
+def _traer(api, perfil: dict):
+    """Las tres consultas por departamento y tipo. Cada registro lleva
+    `_as_of` de su pagina para saber de cuando es lo que se muestra."""
+    desde_anio = int(os.environ.get("CROMA_DESDE_ANIO", str(hoy().year - 4)))
+    desde = f"{desde_anio}-01-01"
+    desde_abiertos = (hoy() - timedelta(days=DIAS_ABIERTOS)).isoformat()
+    deptos = [_depto_secop(d) for d in perfil.get("departamentos_interes") or []] or [None]
+    contratos, adjudicados, abiertos = [], [], []
+    for depto in deptos:
+        comun = {"platform": "secop_ii"}
+        if depto:
+            comun["department"] = depto
+        for tipo in TIPOS_CONSTRUCCION:
+            contratos += _paginas(api, "/co/secop/contracts-search/v1",
+                                  {**comun, "contract_type": tipo, "from_date": desde})
+            adjudicados += _paginas(api, "/co/secop/processes-search/v1",
+                                    {**comun, "contract_type": tipo, "from_date": desde, "awarded": "yes"})
+            abiertos += _paginas(api, "/co/secop/processes-search/v1",
+                                 {**comun, "contract_type": tipo, "from_date": desde_abiertos,
+                                  "awarded": "no", "sort": "recent"})
+    return contratos, adjudicados, abiertos
+
+
+def _paginas(api, ruta, cuerpo) -> list[dict]:
+    out = []
+    for fila in api.paginar(ruta, cuerpo):
+        out.append(fila)
+    return out
+
+
+def _depto_secop(d: str) -> str:
+    n = M.norm_txt(d) or ""
+    return DEPARTAMENTOS_SECOP.get(n) or " ".join(
+        w if w in ("de", "del", "y") else w.capitalize() for w in n.lower().split())
+
+
+def _perfil() -> dict:
+    """El perfil de la constructora manda que departamentos traer. Hoy es el
+    del filtro (los cinco enfoques comparten el mismo ficticio)."""
+    return json.loads((RAIZ / "filtro" / "fixtures" / "perfil_constructora.json").read_text(encoding="utf-8"))
