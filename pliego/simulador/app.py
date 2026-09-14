@@ -19,7 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from pliego.comun import fuente
 from pliego.comun import web as W
 from pliego.simulador import datos
-from pliego.simulador.metodos import VERSIONES, VERSION_DEFECTO
+from pliego.simulador.metodos import VERSION_DEFECTO, VERSIONES
 
 app = FastAPI(title="Pliego · Simulador de oferta", version="0.1.0")
 app.mount("/static", StaticFiles(directory=str(W.STATIC)), name="static")
@@ -110,7 +110,7 @@ def grafico_svg(malla: list[dict], rango: list[float], ratio: float, metodos: li
         vals = [p["por_metodo"][m["clave"]] for p in malla]
         s.append(f'<path d="{path(vals)}" fill="none" stroke="rgba(242,240,238,.45)" stroke-width="1.5" stroke-dasharray="{TRAZO.get(m["clave"], "")}"/>')
     s.append(f'<path d="{path(esp)}" fill="none" stroke="#ec3013" stroke-width="2.5"/>')
-    for (y0, texto, hot), y in zip(etiquetas, ys):
+    for (_y0, texto, hot), y in zip(etiquetas, ys):
         s.append(f'<text x="{W_ - R + 6}" y="{y + 4:.1f}" font-size="11" fill="{"#ff8a72" if hot else "rgba(242,240,238,.6)"}"'
                  f'{" font-weight=\"600\"" if hot else ""}>{texto}</text>')
     pt = next(p for p in malla if p["ratio"] == ratio)

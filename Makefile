@@ -41,7 +41,7 @@ test:     ## Puertas de calidad de datos (fallan el PR)
 	python -m pytest tests/ -v
 
 lint:
-	ruff check pipeline api tests
+	ruff check .
 
 load:     ## Carga las tablas api_* del warehouse a Postgres
 	python pipeline/load_postgres.py
@@ -49,7 +49,7 @@ load:     ## Carga las tablas api_* del warehouse a Postgres
 api:      ## Sirve la API publica en http://localhost:8000/docs (necesita DATABASE_URL)
 	uvicorn app.main:app --app-dir api --reload
 
-test-api: ## Contrato del API (no necesita Postgres); pide api/requirements-dev.txt
+test-api: ## Contrato del API (no necesita Postgres); deps: uv sync --extra legacy --extra dev
 	python -m pytest api/tests/ -v
 
 front:    ## Compila las islas de Vue (docs/PLAN_VUE.md). Solo hace falta si tocaste frontend/

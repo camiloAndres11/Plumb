@@ -6,7 +6,6 @@ pydantic-settings>=2.6,<3
 # conexion TCP nueva en cada una es el cuello de botella obvio.
 psycopg[binary,pool]>=3.2,<4
 anthropic>=0.68,<1
-# servidor MCP (api/app/mcp/): exige Python >=3.10, por eso vive separado
-# del pipeline (fijado a 3.9 en el entorno local del lider). Lee de Postgres
-# (psycopg, arriba), no de archivos locales. Ver MCP.md.
+# servidor MCP (api/app/mcp/). Lee de Postgres (psycopg, arriba), no de
+# archivos locales. Ver MCP.md.
 mcp>=2.0,<3

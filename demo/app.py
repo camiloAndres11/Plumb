@@ -24,7 +24,8 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from pliego.checklist.app import app as checklist_app
-from pliego.comun import fuente, panel as P
+from pliego.comun import fuente
+from pliego.comun import panel as P
 from pliego.comun import web as W
 from pliego.comun.prefijo import ConPrefijo, sidebar_con_hub
 from pliego.filtro import datos as filtro_datos

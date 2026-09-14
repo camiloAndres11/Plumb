@@ -61,7 +61,7 @@ del fraude en obra pública, y solo se ve si tienes los dos lados.
 ## Cómo correrlo
 
 ```bash
-pip install -r requirements-dev.txt
+uv sync --extra legacy --extra dev   # o: pip install -e ".[legacy,dev]"
 
 python pipeline/ingest.py                            # ~4 min, reanudable
 python pipeline/build.py                             # ~20 s, warehouse + base.parquet
@@ -73,7 +73,7 @@ python pipeline/report.py                            # rankings + CSVs en out/
 python -m pytest tests/                              # puertas de calidad
 ```
 
-Con Docker (fija Python 3.11 para todo el equipo): `docker compose up`.
+Con Docker (Python 3.12, el de todo el repo): `docker compose up`.
 El entorno local de Windows no tiene `make`; las recetas del `Makefile` son
 one-liners a propósito, se pueden copiar tal cual.
 
@@ -535,7 +535,7 @@ aviso viaje en toda respuesta, que un `orden` o una `bandera` fuera de la lista 
 den 400 **antes** de tocar el SQL, y que ninguna respuesta pueda filtrar la cuenta
 bancaria.
 
-`python api/app/mcp/test_smoke.py` — las 7 tools del MCP contra un Postgres real.
+`python api/app/mcp/humo_mcp.py` — las 7 tools del MCP contra un Postgres real.
 
 ## Contrato de datos entre frentes
 

@@ -10,7 +10,7 @@ creyendo que son datos de verdad (ver data.py: _resolver_out()).
 Incluye a proposito los casos dificiles de la seccion 10: 'NO DEFINIDO',
 urlproceso como struct, valor imposible, municipio de 4 contratos, siglas.
 """
-import csv, random, unicodedata
+import csv, random
 from pathlib import Path
 
 OUT = Path(__file__).parent / "fixtures"

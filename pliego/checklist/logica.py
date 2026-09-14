@@ -14,7 +14,7 @@ donde salio el requisito: sin evidencia no se publica.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import date, timedelta
 
 CUMPLE, NO_CUMPLE, FALTA, REVISAR = "cumple", "no_cumple", "falta_documento", "revisar"

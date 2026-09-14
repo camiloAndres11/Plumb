@@ -11,7 +11,7 @@ from datetime import date
 
 import pytest
 
-from pliego.comun import cache, contexto
+from pliego.comun import cache, contexto, croma
 from pliego.comun import fuente as F
 from pliego.tests import test_croma as T
 
@@ -81,6 +81,7 @@ def test_la_cache_se_invalida_al_escribir(wh):
 
 def test_las_evaluaciones_dependen_de_la_empresa_no_solo_del_ambito(wh):
     import json
+
     from pliego.filtro import datos as DF
     wh.upsert("SANTANDER", *_lote(1, 7))
     base = json.load(open("pliego/filtro/fixtures/perfil_constructora.json"))
@@ -109,8 +110,8 @@ DSN = os.environ.get("PLATAFORMA_TEST_DATABASE_URL") or os.environ.get("DATABASE
 
 @pytest.mark.skipif(not DSN, reason="sin Postgres de pruebas")
 def test_descargar_departamento_escribe_warehouse_y_estado(wh, monkeypatch):
-    from plataforma import db, migrar, trabajos
     from plataforma import config as C
+    from plataforma import db, migrar, trabajos
     C.config.database_url = DSN
     migrar.migrar(DSN, salida=open(os.devnull, "w"))
     db.ejecutar("DELETE FROM pliego.descargas_departamento WHERE departamento = 'VAUPES'")
@@ -128,7 +129,7 @@ def test_descargar_departamento_escribe_warehouse_y_estado(wh, monkeypatch):
     assert fila["as_of"].isoformat().startswith("2026-09-14")
     # segunda vez: incremental (from_date reciente) y con error -> queda en error
     api2, ses2 = T.cliente(T.Resp(402, {"error": {"code": "billing_error"}}, {"X-RateLimit-Reset": "x"}))
-    with pytest.raises(Exception):
+    with pytest.raises(croma.CromaError):
         trabajos.descargar_departamento("VAUPES", api=api2)
     fila = db.uno("SELECT * FROM pliego.descargas_departamento WHERE departamento = 'VAUPES'")
     assert fila["estado"] == "error" and "402" in fila["error"]
@@ -141,6 +142,7 @@ def test_los_enfoques_bajo_app_exigen_sesion_perfil_y_datos(wh, monkeypatch):
     """Fase 4: /app/filtro redirige segun lo que falte y, con todo, sirve la
     lista del filtro con la sidebar de la plataforma y los datos de la empresa."""
     import uuid
+
     from fastapi.testclient import TestClient
 
     from plataforma import config as C

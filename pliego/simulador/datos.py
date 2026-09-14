@@ -8,7 +8,7 @@ import random
 
 from pliego.comun import cache, fuente
 from pliego.simulador import logica
-from pliego.simulador.metodos import VERSIONES, VERSION_DEFECTO
+from pliego.simulador.metodos import VERSION_DEFECTO, VERSIONES
 
 
 def _filas(nombre: str) -> list[dict]:

@@ -1,12 +1,11 @@
 """La empresa: equipo e invitaciones (fase 1); perfil y datos (fases 2-3)."""
 from __future__ import annotations
 
+import json
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse
-
-import json
 
 from plataforma import carpeta as CARPETA
 from plataforma import cuentas, db, seguridad, sesiones, trabajos

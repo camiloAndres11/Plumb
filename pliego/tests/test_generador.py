@@ -5,8 +5,8 @@ from datetime import date
 
 import pytest
 
-from pliego.generador import logica as L
 from pliego.generador import datos
+from pliego.generador import logica as L
 
 HOY = date(2021, 7, 6)
 

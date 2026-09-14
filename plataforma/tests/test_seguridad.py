@@ -79,6 +79,7 @@ def test_el_log_de_acceso_no_lleva_tokens():
 
 def test_cabeceras_de_seguridad_y_cookie_de_login():
     from fastapi.testclient import TestClient
+
     from plataforma.app import app
     with TestClient(app, follow_redirects=False) as c:
         r = c.get("/terminos")
