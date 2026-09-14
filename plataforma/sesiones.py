@@ -112,7 +112,7 @@ def _cargar_desde_cookie(request: Request) -> tuple[dict | None, dict | None, di
     if not sid:
         return None, None, None
     fila = db.uno("""
-        SELECT s.id AS sid, s.csrf, s.ultimo_uso,
+        SELECT s.id AS sid, s.csrf, s.ultimo_uso, s.creada,
                u.id, u.empresa_id, u.email, u.nombre, u.rol, u.email_verificado, u.creado, u.pliego_actual,
                e.nit, e.nombre AS empresa_nombre, e.perfil, e.departamentos, e.perfil_completo
         FROM pliego.sesiones s
@@ -122,7 +122,10 @@ def _cargar_desde_cookie(request: Request) -> tuple[dict | None, dict | None, di
     if not fila:
         return None, None, None
     limite = datetime.now(UTC) - timedelta(days=config.sesion_dias)
-    if fila["ultimo_uso"] < limite:
+    # Vence por inactividad y tambien en absoluto (config.sesion_max_dias
+    # desde que se creo): una sesion robada no vive para siempre solo
+    # porque se siga usando.
+    if fila["ultimo_uso"] < limite or fila["creada"] < datetime.now(UTC) - timedelta(days=config.sesion_max_dias):
         cerrar(sid)
         return None, None, None
     if datetime.now(UTC) - fila["ultimo_uso"] > TOCAR_CADA:

@@ -209,5 +209,5 @@ def quitar_usuario(empresa_id: int, usuario_id: int) -> str | None:
 def _es_ultimo_admin(empresa_id: int, usuario_id: int) -> bool:
     fila = db.uno("SELECT count(*) AS n FROM pliego.usuarios WHERE empresa_id = %s AND rol = 'admin' AND id <> %s",
                   [empresa_id, usuario_id])
-    u = usuario_por_id(usuario_id)
+    u = db.uno("SELECT rol FROM pliego.usuarios WHERE id = %s AND empresa_id = %s", [usuario_id, empresa_id])
     return bool(u and u["rol"] == "admin" and fila and fila["n"] == 0)

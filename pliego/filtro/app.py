@@ -261,7 +261,7 @@ def detalle(id_proceso: str):
   </div>
 </div>
 <p class="foot-note">Los umbrales habilitantes son los usuales de los documentos tipo de obra pública; el pliego real puede fijar otros.
-<a href="{W.h(x['urlproceso'] or '#')}" target="_blank" rel="noopener" style="color:var(--ad-ink-85)">Abrir el proceso en SECOP II →</a></p>
+<a href="{W.url_segura(x['urlproceso'])}" target="_blank" rel="noopener" style="color:var(--ad-ink-85)">Abrir el proceso en SECOP II →</a></p>
 """
     return W.pagina(f"{texto} · {x['id_del_proceso']}", cuerpo, _side("/"))
 

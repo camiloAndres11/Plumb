@@ -39,6 +39,8 @@ class Config(BaseSettings):
     plataforma_datos: str = str(RAIZ / "data")
     # Sesion: dias de inactividad antes de expirar.
     sesion_dias: int = 30
+    # Caducidad absoluta desde que se abrio, aunque se siga usando.
+    sesion_max_dias: int = 90
     # Saltos de X-Forwarded-For que se descuentan desde la derecha para hallar
     # la IP real. Por defecto 0: uvicorn ya resuelve la IP con --proxy-headers
     # y una lista de proxies de red privada (ver el Dockerfile), asi que vale
