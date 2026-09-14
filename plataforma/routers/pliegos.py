@@ -15,40 +15,14 @@ router = APIRouter()
 
 @router.get("/pliegos", response_class=HTMLResponse)
 def lista(request: Request, usuario: dict = Depends(sesiones.requiere_sesion)):
-    empresa, token = request.state.empresa, sesiones.token_csrf(request)
+    empresa, token, q = request.state.empresa, sesiones.token_csrf(request), request.query_params
     en_cola = set(trabajos.en_cola())
-    filas = ""
+    filas = []
     for p in pliegos.listar(empresa["id"]):
-        actual = usuario.get("pliego_actual") == p["id"]
         estado = "en cola" if (p["estado"] == "subido" and f"pliego:{p['id']}" in en_cola) else p["estado"]
-        acciones = ""
-        if p["estado"] == "listo":
-            acciones += (f'<form method="post" action="/pliegos/{p["id"]}/usar" style="display:inline">{V.csrf(token)}'
-                         f'<button class="btn{" hot" if not actual else ""}" type="submit">{"En uso" if actual else "Usar"}</button></form> '
-                         f'<a class="btn" href="/app/checklist/">Checklist</a> <a class="btn" href="/app/generador/">Propuesta</a> ')
-        if p["estado"] == "error" and usuario["rol"] == "admin":
-            acciones += (f'<form method="post" action="/pliegos/{p["id"]}/reintentar" style="display:inline">{V.csrf(token)}'
-                         f'<button class="btn" type="submit">Reintentar</button></form> ')
-        if usuario["rol"] == "admin":
-            acciones += (f'<form method="post" action="/pliegos/{p["id"]}/borrar" style="display:inline" onsubmit="return confirm(\'¿Borrar este pliego?\')">{V.csrf(token)}'
-                         f'<button class="btn peligro" type="submit">Borrar</button></form>')
-        filas += (f'<tr><td>{V.h(p["nombre"])}<br><small class="mute">{V.h(p.get("proceso") or "")} · {V.h(p.get("entidad") or "")}</small></td>'
-                  f'<td><span class="estado {p["estado"]}">{V.h(estado)}</span></td><td>{p["paginas"] or ""}</td>'
-                  f'<td>{p["creado"].strftime("%Y-%m-%d")}</td><td style="max-width:260px;font-size:12px;color:#ffb3a3">{V.h((p.get("error") or "")[:140])}</td>'
-                  f'<td style="white-space:nowrap">{acciones}</td></tr>')
-    aviso = "" if extraccion.disponible() else V.mensajes(error="La extracción con Claude no está configurada (ANTHROPIC_API_KEY): los pliegos quedarán en 'subido' hasta que lo esté.", clase="msg")
-    subir = (f'<div class="card" style="margin-top:24px"><div class="card-head"><div class="card-title">Subir un pliego</div></div>'
-             f'<form method="post" action="/pliegos" enctype="multipart/form-data" class="form">{V.csrf(token)}'
-             f'<label class="campo">PDF del pliego de condiciones (máximo 30 MB)<input type="file" name="archivo" accept="application/pdf" required></label>'
-             f'<div><button class="btn hot" type="submit">Subir y extraer</button></div>'
-             f'<p class="mute" style="font-size:13px;margin:0">Claude lee el pliego y saca los requisitos habilitantes, los lotes y los formatos. Tarda uno o dos minutos. '
-             f'Cada dato cita la página del PDF de donde salió.</p></form></div>')
-    cuerpo = (V.cabecera("Pliegos", "Pliegos de la empresa", "Con un pliego listo se activan el checklist y el generador de propuesta.")
-              + V.mensajes(ok=request.query_params.get("ok"), error=request.query_params.get("error"), clase="msg") + aviso
-              + (f'<div class="card"><table class="tabla"><tr><th>Pliego</th><th>Estado</th><th>Páginas</th><th>Subido</th><th></th><th></th></tr>{filas}</table></div>'
-                 if filas else '<div class="card"><p class="mute" style="margin:0">Todavía no hay pliegos.</p></div>')
-              + subir)
-    return V.privada("Pliegos", cuerpo, "/pliegos", usuario, empresa, token)
+        filas.append((p, estado, usuario.get("pliego_actual") == p["id"]))
+    return V.privada(request, "pliegos.html", "Pliegos", "/pliegos", usuario, empresa, token, filas=filas,
+                     extraccion_disponible=extraccion.disponible(), ok=q.get("ok"), error=q.get("error"))
 
 
 async def _leer_con_tope(archivo: UploadFile, maximo: int) -> bytes | None:

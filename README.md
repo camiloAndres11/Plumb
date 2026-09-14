@@ -41,7 +41,7 @@ Ver [`docs/enfoques/croma.md`](docs/enfoques/croma.md).
 
 Cada enfoque es una app FastAPI independiente en `pliego/<enfoque>/` con la misma
 estructura: `datos.py` (única capa con IO), `logica.py` (funciones puras),
-`app.py` (HTML + JSON) y `fixtures/`. Índice en [`docs/enfoques/README.md`](docs/enfoques/README.md).
+`app.py` (rutas JSON y HTML), `templates/` (Jinja2 con autoescape) y `fixtures/`. Índice en [`docs/enfoques/README.md`](docs/enfoques/README.md).
 
 ## Correr
 
@@ -101,9 +101,10 @@ Issues en GitHub Issues de `camiloAndres11/Plumb` (ver `docs/agents/`).
 ```
 pyproject.toml  uv.lock   un proyecto (pliego, plataforma, demo); extras plataforma, legacy, dev
 pliego/
-  comun/     web (shell HTML), fuente (fixtures | croma | warehouse), croma, mapeo_croma,
-             warehouse, cache, contexto, prefijo, panel
-  filtro/  checklist/  simulador/  radar/  generador/   los enfoques
+  comun/     web (Jinja2: plantillas, filtros, base.html), config, fuente (fixtures | croma | warehouse),
+             croma, mapeo_croma, warehouse, cache, contexto, pg, panel
+  filtro/  checklist/  simulador/  radar/  generador/   los enfoques (app.py + templates/ + datos.py + logica.py)
+  static/    base.css, fuentes y el css/js de cada enfoque
   tests/
 demo/        la demo integrada (puerto 8000)
 plataforma/  cuentas, perfil, trabajos, enfoques montados, pliegos, admin (puerto 8100)

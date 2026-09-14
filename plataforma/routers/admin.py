@@ -26,13 +26,9 @@ def requiere_plataforma_admin(request: Request) -> dict:
     return usuario
 
 
-def _f(d) -> str:
-    return d.strftime("%Y-%m-%d %H:%M") if d else "—"
-
-
 @router.get("/admin", response_class=HTMLResponse)
 def admin(request: Request, usuario: dict = Depends(requiere_plataforma_admin)):
-    token = sesiones.token_csrf(request)
+    token, q = sesiones.token_csrf(request), request.query_params
     empresas = db.todos("""
         SELECT e.id, e.nit, e.nombre, e.departamentos, e.perfil_completo, e.creada,
                count(u.id) AS usuarios, count(u.email_verificado) AS verificados,
@@ -42,49 +38,15 @@ def admin(request: Request, usuario: dict = Depends(requiere_plataforma_admin)):
     descargas = db.todos("SELECT * FROM pliego.descargas_departamento ORDER BY departamento")
     pliegos = db.todos("SELECT p.id, p.nombre, p.estado, p.paginas, p.costo_usd, p.creado, p.error, e.nombre AS empresa "
                        "FROM pliego.pliegos p JOIN pliego.empresas e ON e.id = p.empresa_id ORDER BY p.creado DESC LIMIT 50")
-    en_cola = set(trabajos.en_cola())
     try:
         wh = warehouse.estado()
-        meta = {m["departamento"]: m for m in wh["departamentos"]}
+        meta, meta_error = {m["departamento"]: m for m in wh["departamentos"]}, ""
     except Exception as e:
-        wh, meta = {"as_of": None, "n_base": 0, "n_abiertos": 0}, {}
-        meta_error = str(e)
-    else:
-        meta_error = ""
-    f_emp = "".join(
-        f'<tr><td>{e["id"]}</td><td>{V.h(e["nombre"])}<br><small class="mute">{V.h(e["nit"])}</small></td>'
-        f'<td>{V.h(", ".join(d.title() for d in (e["departamentos"] or [])))}</td><td>{"sí" if e["perfil_completo"] else "no"}</td>'
-        f'<td>{e["usuarios"]} ({e["verificados"]} verif.)</td><td>{e["pliegos"]}</td><td>{_f(e["creada"])}</td></tr>' for e in empresas)
-    f_desc = ""
-    for d in descargas:
-        m = meta.get(d["departamento"]) or {}
-        boton = (f'<form method="post" action="/admin/descargar" style="display:inline">{V.csrf(token)}'
-                 f'<input type="hidden" name="departamento" value="{V.h(d["departamento"])}"><button class="btn" type="submit">Encolar</button></form>'
-                 if d["departamento"] not in en_cola and d["estado"] != "descargando" else "en cola")
-        f_desc += (f'<tr><td>{V.h(d["departamento"].title())}</td><td><span class="estado {d["estado"]}">{V.h(d["estado"])}</span></td>'
-                   f'<td>{V.h(str(d["as_of"] or "")[:16])}</td><td>{_f(d["ultima_ok"])}</td><td>{d["paginas"]}</td>'
-                   f'<td>{m.get("n_base", "—")} / {m.get("n_abiertos", "—")}</td>'
-                   f'<td style="max-width:260px;font-size:12px;color:#ffb3a3">{V.h((d["error"] or "")[:160])}</td><td>{boton}</td></tr>')
-    f_pli = "".join(
-        f'<tr><td>{p["id"]}</td><td>{V.h(p["empresa"])}</td><td>{V.h(p["nombre"])}</td><td><span class="estado {p["estado"]}">{p["estado"]}</span></td>'
-        f'<td>{p["paginas"] or ""}</td><td>{("$%.3f" % p["costo_usd"]) if p["costo_usd"] is not None else ""}</td><td>{_f(p["creado"])}</td>'
-        f'<td style="max-width:220px;font-size:12px;color:#ffb3a3">{V.h((p["error"] or "")[:120])}</td></tr>' for p in pliegos)
-    costo_total = sum(float(p["costo_usd"] or 0) for p in pliegos)
-    estado = (f'<div class="card"><div class="fila" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">'
-              f'<div><div class="kicker">Croma</div><b>{"llave configurada" if croma.disponible() else "sin llave"}</b>'
-              f'<br><small class="mute">créditos restantes: {trabajos.ultimo_creditos if trabajos.ultimo_creditos is not None else "—"}</small></div>'
-              f'<div><div class="kicker">Warehouse</div><b>{wh["n_base"]} contratos · {wh["n_abiertos"]} abiertos</b><br><small class="mute">datos al {V.h(str(wh["as_of"] or "")[:10]) or "—"} · {V.h(meta_error)}</small></div>'
-              f'<div><div class="kicker">Cola</div><b>{", ".join(sorted(en_cola)) or "vacía"}</b></div>'
-              f'<div><div class="kicker">Pliegos</div><b>{len(pliegos)} · USD {costo_total:.2f}</b></div></div></div>')
-    cuerpo = (V.cabecera("Administración", "Plataforma", f"{len(empresas)} empresas · {len(descargas)} departamentos")
-              + V.mensajes(ok=request.query_params.get("ok"), error=request.query_params.get("error"), clase="msg") + estado
-              + f'<div class="card" style="margin-top:24px"><div class="card-head"><div class="card-title">Empresas</div></div><table class="tabla">'
-                f'<tr><th>#</th><th>Empresa</th><th>Departamentos</th><th>Perfil</th><th>Usuarios</th><th>Pliegos</th><th>Creada</th></tr>{f_emp}</table></div>'
-              + f'<div class="card" style="margin-top:24px"><div class="card-head"><div class="card-title">Descargas por departamento</div></div><table class="tabla">'
-                f'<tr><th>Departamento</th><th>Estado</th><th>as_of</th><th>Última ok</th><th>Consultas</th><th>base / abiertos</th><th></th><th></th></tr>{f_desc}</table></div>'
-              + f'<div class="card" style="margin-top:24px"><div class="card-head"><div class="card-title">Pliegos</div></div><table class="tabla">'
-                f'<tr><th>#</th><th>Empresa</th><th>Archivo</th><th>Estado</th><th>Pág.</th><th>Costo</th><th>Subido</th><th></th></tr>{f_pli}</table></div>')
-    return V.privada("Admin", cuerpo, "/admin", usuario, request.state.empresa, token)
+        wh, meta, meta_error = {"as_of": None, "n_base": 0, "n_abiertos": 0}, {}, str(e)
+    return V.privada(request, "admin.html", "Admin", "/admin", usuario, request.state.empresa, token, empresas=empresas,
+                     descargas=descargas, pliegos=pliegos, en_cola=set(trabajos.en_cola()), wh=wh, meta=meta, meta_error=meta_error,
+                     croma_ok=croma.disponible(), creditos=trabajos.ultimo_creditos,
+                     costo_total=sum(float(p["costo_usd"] or 0) for p in pliegos), ok=q.get("ok"), error=q.get("error"))
 
 
 @router.get("/admin/estado")

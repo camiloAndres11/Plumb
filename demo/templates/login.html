@@ -1,0 +1,12 @@
+{% extends "publica.html" %}
+{% block tarjeta %}
+<form action="/panel" method="get">
+<div><span class="ad-badge"><span class="ad-dot"></span>Para constructoras que licitan obra pública</span>
+<h1>Ingrese a Pliego.</h1><p class="sub">Sus licitaciones de hoy, listas a las 6:00.</p></div>
+<div class="lg-campos" style="margin-top:22px">
+<label class="lg-campo">Correo<input type="email" value="licitaciones@constructoraandina.co" placeholder="" autocomplete="off"></label>
+<label class="lg-campo">Contraseña<input type="password" value="" placeholder="••••••••••" autocomplete="off"></label></div>
+<button class="ad-btn ad-btn-shadow" type="submit" style="margin-top:22px">Iniciar</button>
+<div class="lg-links" style="margin-top:22px"><a href="#">¿Olvidó su contraseña?</a><a href="/#precios">Probar 14 días gratis</a></div>
+</form>
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "publica.html" %}
+{% from "_macros.html" import mensajes, campo %}
+{% from "publico/_badge.html" import badge %}
+{% block tarjeta %}
+<div>{{ badge() }}<h1>Recupere su contraseña.</h1><p class="sub">Le enviamos un enlace para elegir una nueva.</p></div>
+{{ mensajes(ok=ok) }}
+<form method="post" action="/olvide" class="lg-campos">{{ campo("email", "Correo", "email", autocomplete="email") }}
+<button class="ad-btn ad-btn-shadow" type="submit">Enviar enlace</button></form>
+<div class="lg-links"><a href="/login">Volver al inicio de sesión</a></div>
+{% endblock %}

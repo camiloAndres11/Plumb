@@ -1,0 +1,12 @@
+{# Helpers de formulario y mensajes de la plataforma. #}
+{% macro mensajes(ok=none, error=none, clase="lg-msg") %}
+{% if ok %}<div class="{{ clase }} ok">{{ ok }}</div>{% endif %}
+{% if error %}<div class="{{ clase }} error">{{ error }}</div>{% endif %}
+{%- endmacro %}
+{% macro campo(nombre, etiqueta, tipo="text", valor="", requerido=true, placeholder="", ayuda="", autocomplete="", extra="", clase="lg-campo") %}
+<label class="{{ clase }}">{{ etiqueta }}<input type="{{ tipo }}" name="{{ nombre }}" value="{{ valor }}" placeholder="{{ placeholder }}"{% if requerido %} required{% endif %}{% if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %} {{ extra }}>{% if ayuda %}<small>{{ ayuda }}</small>{% endif %}</label>
+{%- endmacro %}
+{% macro csrf(token) %}<input type="hidden" name="csrf" value="{{ token }}">{% endmacro %}
+{% macro cabecera(kicker, titulo, sub="", derecha="") %}
+<div class="cab"><div><div class="kicker">{{ kicker }}</div><h1 class="titulo">{{ titulo }}</h1>{% if sub %}<p class="mute" style="font-size:14px;margin-top:6px">{{ sub }}</p>{% endif %}</div>{{ derecha }}</div>
+{%- endmacro %}

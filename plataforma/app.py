@@ -23,24 +23,16 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 
 from plataforma import db, enfoques, extraccion, seguridad, sesiones, trabajos
 from plataforma import vistas as V
 from plataforma.config import RAIZ, VERSION, config
 from pliego.comun import croma, warehouse
+from pliego.comun import web as W
 
 log = logging.getLogger("pliego.plataforma")
 acceso = logging.getLogger("pliego.acceso")
-
-class EstaticosDeDos(StaticFiles):
-    """/static sirve la landing (plataforma/static: landing.css, favicon) y
-    el shell de los enfoques (pliego/static: base.css) desde una sola ruta."""
-
-    def get_directories(self, directory=None, packages=None):
-        return [str(RAIZ / "plataforma" / "static"), str(RAIZ / "pliego" / "static")]
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -54,7 +46,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Pliego", version=VERSION, lifespan=lifespan, docs_url=None, redoc_url=None)
-app.mount("/static", EstaticosDeDos(), name="static")
+# /static: la landing y lo de la plataforma, y el shell de los enfoques (base.css, fuentes), por una sola ruta.
+app.mount("/static", W.Estaticos(RAIZ / "plataforma" / "static", RAIZ / "pliego" / "static"), name="static")
 app.middleware("http")(sesiones.cargar)
 
 
@@ -68,9 +61,12 @@ def ruta_para_log(path: str) -> str:
     return _TOKEN_EN_PATH.sub(r"\1<token>", path)
 
 
-# TODO(F4): al sacar el CSS y el JS inline a archivos (plantillas Jinja),
-# quitar 'unsafe-inline' de script-src y style-src.
-CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+# Sin scripts inline: todo el JS vive en /static (plataforma.js y el de cada
+# enfoque) y los datos para JS van en <script type="application/json">, que
+# no se ejecuta. style-src conserva 'unsafe-inline' porque las plantillas
+# usan atributos style= en muchos sitios; quitarlos es trabajo cosmetico y
+# el riesgo de una inyeccion de CSS es menor.
+CSP = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
        "img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; "
        "base-uri 'self'; form-action 'self'")
 
@@ -137,8 +133,9 @@ async def _redirigir(request: Request, exc: sesiones.Redirigir):
 
 @app.exception_handler(sesiones.Prohibido)
 async def _prohibido(request: Request, exc: sesiones.Prohibido):
-    return HTMLResponse(V.publica("Sin permiso", f"<div><h1>Sin permiso.</h1><p class='sub'>{V.h(str(exc))}</p></div>"
-                                  '<div class="lg-links"><a href="/panel">Ir al panel</a></div>'), status_code=403)
+    respuesta = V.publica(request, "prohibido.html", "Sin permiso", motivo=str(exc))
+    respuesta.status_code = 403
+    return respuesta
 
 
 @app.exception_handler(db.BaseNoDisponible)

@@ -7,6 +7,8 @@
    Design, traducido de React (DCLogic) a DOM plano. */
 (function () {
   'use strict';
+  // Antes iba inline en el <head>; el CSP solo permite scripts de /static.
+  document.documentElement.classList.add('ad-js');
 
   // 1. pestañas
   var tabs = Array.prototype.slice.call(document.querySelectorAll('.ad-tab'));

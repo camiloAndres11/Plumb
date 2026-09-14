@@ -1,0 +1,26 @@
+{% extends "privada.html" %}
+{% from "_macros.html" import mensajes, cabecera, csrf %}
+{% block cuerpo %}
+{{ cabecera("Pliegos", "Pliegos de la empresa", "Con un pliego listo se activan el checklist y el generador de propuesta.") }}
+{{ mensajes(ok=ok, error=error, clase="msg") }}
+{% if not extraccion_disponible %}{{ mensajes(error="La extracción con Claude no está configurada (ANTHROPIC_API_KEY): los pliegos quedarán en 'subido' hasta que lo esté.", clase="msg") }}{% endif %}
+{% if filas %}
+<div class="card"><table class="tabla"><tr><th>Pliego</th><th>Estado</th><th>Páginas</th><th>Subido</th><th></th><th></th></tr>
+{% for p, estado, actual in filas %}
+<tr><td>{{ p.nombre }}<br><small class="mute">{{ p.proceso or "" }} · {{ p.entidad or "" }}</small></td>
+<td><span class="estado {{ p.estado }}">{{ estado }}</span></td><td>{{ p.paginas or "" }}</td>
+<td>{{ p.creado.strftime("%Y-%m-%d") }}</td><td style="max-width:260px;font-size:12px;color:#ffb3a3">{{ (p.error or "")[:140] }}</td>
+<td style="white-space:nowrap">
+{% if p.estado == "listo" %}<form method="post" action="/pliegos/{{ p.id }}/usar" style="display:inline">{{ csrf(csrf_token) }}<button class="btn{% if not actual %} hot{% endif %}" type="submit">{{ "En uso" if actual else "Usar" }}</button></form> <a class="btn" href="/app/checklist/">Checklist</a> <a class="btn" href="/app/generador/">Propuesta</a> {% endif %}
+{% if p.estado == "error" and usuario.rol == "admin" %}<form method="post" action="/pliegos/{{ p.id }}/reintentar" style="display:inline">{{ csrf(csrf_token) }}<button class="btn" type="submit">Reintentar</button></form> {% endif %}
+{% if usuario.rol == "admin" %}<form method="post" action="/pliegos/{{ p.id }}/borrar" style="display:inline" data-confirmar="¿Borrar este pliego?">{{ csrf(csrf_token) }}<button class="btn peligro" type="submit">Borrar</button></form>{% endif %}
+</td></tr>
+{% endfor %}
+</table></div>
+{% else %}<div class="card"><p class="mute" style="margin:0">Todavía no hay pliegos.</p></div>{% endif %}
+<div class="card" style="margin-top:24px"><div class="card-head"><div class="card-title">Subir un pliego</div></div>
+<form method="post" action="/pliegos" enctype="multipart/form-data" class="form">{{ csrf(csrf_token) }}
+<label class="campo">PDF del pliego de condiciones (máximo 30 MB)<input type="file" name="archivo" accept="application/pdf" required></label>
+<div><button class="btn hot" type="submit">Subir y extraer</button></div>
+<p class="mute" style="font-size:13px;margin:0">Claude lee el pliego y saca los requisitos habilitantes, los lotes y los formatos. Tarda uno o dos minutos. Cada dato cita la página del PDF de donde salió.</p></form></div>
+{% endblock %}

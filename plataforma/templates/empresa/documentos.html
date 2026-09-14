@@ -1,0 +1,22 @@
+{% extends "privada.html" %}
+{% from "_macros.html" import mensajes, cabecera, csrf, campo %}
+{% block cuerpo %}
+{{ cabecera("Empresa", "Documentos y datos para la propuesta", "Lo que el checklist verifica y lo que el generador escribe en los formatos.") }}
+{{ mensajes(ok=ok, error=error, clase="msg") }}
+<form method="post" action="/empresa/documentos" class="form" style="max-width:none">{{ csrf(csrf_token) }}
+<div class="kicker">Carpeta de documentos</div><p class="mute" style="font-size:13px;margin:0 0 8px">Marque los que tiene al día. El RUP, los estados financieros y la capacidad residual se completan con lo que ya está en el perfil.</p>
+{% for clave, etiqueta, campos in DOCUMENTOS %}{% set d = docs.get(clave) or {} %}
+<div class="card" style="padding:14px;margin-bottom:10px"><label class="lg-check" style="font-size:15px;margin-bottom:8px">
+<input type="checkbox" name="{{ clave }}__tiene" value="1"{% if d.get("tiene") %} checked{% endif %}> <b>{{ etiqueta }}</b></label>
+<div class="fila">{{ campo(clave ~ "__archivo", "Nombre del archivo", valor=d.get("archivo", ""), requerido=false, clase="campo") }}
+{% for nombre, tipo, et in campos %}
+{% if tipo == "check" %}<label class="lg-check" style="font-size:13px"><input type="checkbox" name="{{ clave }}__{{ nombre }}" value="1"{% if d.get(nombre) %} checked{% endif %}> {{ et }}</label>
+{% else %}{{ campo(clave ~ "__" ~ nombre, et, tipo, valor=d.get(nombre, ""), requerido=false, clase="campo") }}{% endif %}
+{% endfor %}
+</div></div>
+{% endfor %}
+<div class="kicker" style="margin-top:18px">Datos para la propuesta</div><div class="card"><div class="fila">
+{% for ruta, et, tipo, valor in propuesta %}{{ campo("p__" ~ ruta, et, tipo, valor=valor, requerido=false, clase="campo") }}{% endfor %}
+</div></div>
+<div style="margin-top:14px"><button class="btn hot" type="submit">Guardar</button></div></form>
+{% endblock %}

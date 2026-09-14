@@ -1,0 +1,16 @@
+{% extends "privada.html" %}
+{% from "_macros.html" import mensajes, cabecera, csrf %}
+{% block cuerpo %}
+{{ cabecera("Empresa", "Datos", listas ~ " de " ~ empresa.departamentos|length ~ " departamentos listos.") }}
+{{ mensajes(ok=ok, error=error, clase="msg") }}
+<div class="card"><table class="tabla"><tr><th>Departamento</th><th>Estado</th><th>Datos al</th><th>Consultas</th><th></th><th></th></tr>
+{% for dep, e, estado, accion in filas %}
+<tr><td>{{ dep.title() }}</td><td><span class="estado {{ e.estado }}">{{ estado }}</span></td>
+<td>{{ (e.as_of or "")|string|truncate(10, true, "") or "—" }}</td><td>{{ e.paginas or 0 }}</td>
+<td style="max-width:320px;font-size:12px;color:#ffb3a3">{{ (e.error or "")[:160] }}</td><td>
+{% if accion %}<form method="post" action="/empresa/datos/reintentar" style="display:inline">{{ csrf(csrf_token) }}<input type="hidden" name="departamento" value="{{ dep }}"><button class="btn" type="submit">{{ accion }}</button></form>{% endif %}
+</td></tr>
+{% endfor %}
+</table>
+<p class="mute" style="font-size:13px;margin-top:12px">La descarga desde Croma empieza sola (la primera vez tarda unos minutos por departamento) y se refresca a diario a las 5:00. Los enfoques se abren cuando al menos un departamento esté listo. <a href="/empresa/datos">Actualizar</a></p></div>
+{% endblock %}

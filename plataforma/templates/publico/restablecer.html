@@ -1,0 +1,10 @@
+{% extends "publica.html" %}
+{% from "_macros.html" import mensajes, campo %}
+{% from "publico/_badge.html" import badge %}
+{% block tarjeta %}
+<div>{{ badge() }}<h1>Elija una contraseña nueva.</h1></div>{{ mensajes(error=error) }}
+<form method="post" action="/restablecer/{{ token }}" class="lg-campos">
+{{ campo("clave", "Contraseña nueva", "password", autocomplete="new-password", ayuda="Mínimo 10 caracteres") }}
+{{ campo("clave2", "Repítala", "password", autocomplete="new-password") }}
+<button class="ad-btn ad-btn-shadow" type="submit">Guardar</button></form>
+{% endblock %}

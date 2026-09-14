@@ -1,0 +1,33 @@
+{% extends "privada.html" %}
+{% from "_macros.html" import mensajes, cabecera, csrf %}
+{% block cuerpo %}
+{{ cabecera("Administración", "Plataforma", empresas|length ~ " empresas · " ~ descargas|length ~ " departamentos") }}
+{{ mensajes(ok=ok, error=error, clase="msg") }}
+<div class="card"><div class="fila" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
+<div><div class="kicker">Croma</div><b>{{ "llave configurada" if croma_ok else "sin llave" }}</b><br><small class="mute">créditos restantes: {{ creditos if creditos is not none else "—" }}</small></div>
+<div><div class="kicker">Warehouse</div><b>{{ wh.n_base }} contratos · {{ wh.n_abiertos }} abiertos</b><br><small class="mute">datos al {{ (wh.as_of or "")|string|truncate(10, true, "") or "—" }} · {{ meta_error }}</small></div>
+<div><div class="kicker">Cola</div><b>{{ en_cola|sort|join(", ") or "vacía" }}</b></div>
+<div><div class="kicker">Pliegos</div><b>{{ pliegos|length }} · USD {{ "%.2f"|format(costo_total) }}</b></div></div></div>
+<div class="card" style="margin-top:24px"><div class="card-head"><div class="card-title">Empresas</div></div><table class="tabla">
+<tr><th>#</th><th>Empresa</th><th>Departamentos</th><th>Perfil</th><th>Usuarios</th><th>Pliegos</th><th>Creada</th></tr>
+{% for e in empresas %}<tr><td>{{ e.id }}</td><td>{{ e.nombre }}<br><small class="mute">{{ e.nit }}</small></td>
+<td>{% for d in e.departamentos or [] %}{% if not loop.first %}, {% endif %}{{ d.title() }}{% endfor %}</td><td>{{ "sí" if e.perfil_completo else "no" }}</td>
+<td>{{ e.usuarios }} ({{ e.verificados }} verif.)</td><td>{{ e.pliegos }}</td><td>{{ e.creada.strftime("%Y-%m-%d %H:%M") if e.creada else "—" }}</td></tr>{% endfor %}
+</table></div>
+<div class="card" style="margin-top:24px"><div class="card-head"><div class="card-title">Descargas por departamento</div></div><table class="tabla">
+<tr><th>Departamento</th><th>Estado</th><th>as_of</th><th>Última ok</th><th>Consultas</th><th>base / abiertos</th><th></th><th></th></tr>
+{% for d in descargas %}{% set m = meta.get(d.departamento) or {} %}
+<tr><td>{{ d.departamento.title() }}</td><td><span class="estado {{ d.estado }}">{{ d.estado }}</span></td>
+<td>{{ (d.as_of or "")|string|truncate(16, true, "") }}</td><td>{{ d.ultima_ok.strftime("%Y-%m-%d %H:%M") if d.ultima_ok else "—" }}</td><td>{{ d.paginas }}</td>
+<td>{{ m.get("n_base", "—") }} / {{ m.get("n_abiertos", "—") }}</td>
+<td style="max-width:260px;font-size:12px;color:#ffb3a3">{{ (d.error or "")[:160] }}</td><td>
+{% if d.departamento not in en_cola and d.estado != "descargando" %}<form method="post" action="/admin/descargar" style="display:inline">{{ csrf(csrf_token) }}<input type="hidden" name="departamento" value="{{ d.departamento }}"><button class="btn" type="submit">Encolar</button></form>{% else %}en cola{% endif %}
+</td></tr>{% endfor %}
+</table></div>
+<div class="card" style="margin-top:24px"><div class="card-head"><div class="card-title">Pliegos</div></div><table class="tabla">
+<tr><th>#</th><th>Empresa</th><th>Archivo</th><th>Estado</th><th>Pág.</th><th>Costo</th><th>Subido</th><th></th></tr>
+{% for p in pliegos %}<tr><td>{{ p.id }}</td><td>{{ p.empresa }}</td><td>{{ p.nombre }}</td><td><span class="estado {{ p.estado }}">{{ p.estado }}</span></td>
+<td>{{ p.paginas or "" }}</td><td>{% if p.costo_usd is not none %}${{ "%.3f"|format(p.costo_usd) }}{% endif %}</td><td>{{ p.creado.strftime("%Y-%m-%d %H:%M") if p.creado else "—" }}</td>
+<td style="max-width:220px;font-size:12px;color:#ffb3a3">{{ (p.error or "")[:120] }}</td></tr>{% endfor %}
+</table></div>
+{% endblock %}

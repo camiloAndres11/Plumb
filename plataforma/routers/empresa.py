@@ -17,32 +17,23 @@ router = APIRouter()
 @router.get("/empresa/datos", response_class=HTMLResponse)
 def datos(request: Request, usuario: dict = Depends(sesiones.requiere_sesion)):
     """Estado de los datos de Croma por departamento de la empresa."""
-    empresa = request.state.empresa
+    empresa, q = request.state.empresa, request.query_params
     if not empresa["departamentos"]:
         return sesiones.redirigir("/empresa/perfil/1?error=" + quote("Primero diga en qué departamentos licita."))
     estados = {d["departamento"]: d for d in db.todos(
         "SELECT * FROM pliego.descargas_departamento WHERE departamento = ANY(%s)", [empresa["departamentos"]])}
     en_cola, token, admin = set(trabajos.en_cola()), sesiones.token_csrf(request), usuario["rol"] == "admin"
-    filas = ""
+    filas = []
     for dep in empresa["departamentos"]:
         e = estados.get(dep) or {"estado": "pendiente", "as_of": None, "paginas": 0, "error": None}
         estado = e["estado"] if dep not in en_cola or e["estado"] == "descargando" else "en cola"
         accion = ""
         if admin and e["estado"] in ("error", "lista", "pendiente") and dep not in en_cola:
-            accion = (f'<form method="post" action="/empresa/datos/reintentar" style="display:inline">{V.csrf(token)}'
-                      f'<input type="hidden" name="departamento" value="{V.h(dep)}"><button class="btn" type="submit">'
-                      f'{"Reintentar" if e["estado"] == "error" else "Descargar ahora"}</button></form>')
-        filas += (f'<tr><td>{V.h(dep.title())}</td><td><span class="estado {e["estado"]}">{V.h(estado)}</span></td>'
-                  f'<td>{V.h(str(e.get("as_of") or "")[:10] or "—")}</td><td>{e.get("paginas") or 0}</td>'
-                  f'<td style="max-width:320px;font-size:12px;color:#ffb3a3">{V.h((e.get("error") or "")[:160])}</td><td>{accion}</td></tr>')
+            accion = "Reintentar" if e["estado"] == "error" else "Descargar ahora"
+        filas.append((dep, e, estado, accion))
     listas = sum(1 for d in empresa["departamentos"] if (estados.get(d) or {}).get("estado") == "lista")
-    cuerpo = (V.cabecera("Empresa", "Datos", f"{listas} de {len(empresa['departamentos'])} departamentos listos.")
-              + V.mensajes(ok=request.query_params.get("ok"), error=request.query_params.get("error"), clase="msg")
-              + f'<div class="card"><table class="tabla"><tr><th>Departamento</th><th>Estado</th><th>Datos al</th><th>Consultas</th><th></th><th></th></tr>{filas}</table>'
-                f'<p class="mute" style="font-size:13px;margin-top:12px">La descarga desde Croma empieza sola (la primera vez tarda unos minutos por departamento) '
-                f'y se refresca a diario a las 5:00. Los enfoques se abren cuando al menos un departamento esté listo. '
-                f'<a href="/empresa/datos">Actualizar</a></p></div>')
-    return V.privada("Datos", cuerpo, "/empresa/datos", usuario, empresa, token)
+    return V.privada(request, "empresa/datos.html", "Datos", "/empresa/datos", usuario, empresa, token, filas=filas, listas=listas,
+                     ok=q.get("ok"), error=q.get("error"))
 
 
 @router.post("/empresa/datos/reintentar")
@@ -58,46 +49,12 @@ def reintentar(request: Request, usuario: dict = Depends(sesiones.requiere_admin
     return sesiones.redirigir("/empresa/datos?ok=" + quote(f"{departamento.title()} en cola."))
 
 
-def _fecha(d) -> str:
-    return d.strftime("%Y-%m-%d") if d else "—"
-
-
 @router.get("/empresa/equipo", response_class=HTMLResponse)
 def equipo(request: Request, usuario: dict = Depends(sesiones.requiere_sesion)):
-    empresa, token = request.state.empresa, sesiones.token_csrf(request)
-    admin = usuario["rol"] == "admin"
-    filas = ""
-    for u in cuentas.equipo(empresa["id"]):
-        acciones = ""
-        if admin and u["id"] != usuario["id"]:
-            otro = "miembro" if u["rol"] == "admin" else "admin"
-            acciones = (f'<form method="post" action="/empresa/equipo/rol" style="display:inline">{V.csrf(token)}'
-                        f'<input type="hidden" name="usuario_id" value="{u["id"]}"><input type="hidden" name="rol" value="{otro}">'
-                        f'<button class="btn" type="submit">Hacer {otro}</button></form> '
-                        f'<form method="post" action="/empresa/equipo/quitar" style="display:inline" onsubmit="return confirm(\'¿Quitar a {V.h(u["nombre"])} de la empresa?\')">{V.csrf(token)}'
-                        f'<input type="hidden" name="usuario_id" value="{u["id"]}"><button class="btn peligro" type="submit">Quitar</button></form>')
-        filas += (f'<tr><td>{V.h(u["nombre"])}{" (usted)" if u["id"] == usuario["id"] else ""}</td><td>{V.h(u["email"])}</td>'
-                  f'<td>{V.h(u["rol"])}</td><td>{"sí" if u["email_verificado"] else "pendiente"}</td>'
-                  f'<td>{_fecha(u["ultimo_acceso"])}</td><td>{acciones}</td></tr>')
-    pendientes = ""
-    for t in cuentas.invitaciones_pendientes(empresa["id"]):
-        revocar = (f'<form method="post" action="/empresa/equipo/revocar" style="display:inline">{V.csrf(token)}'
-                   f'<input type="hidden" name="token" value="{V.h(t["id"])}"><button class="btn peligro" type="submit">Revocar</button></form>') if admin else ""
-        pendientes += f'<tr><td>{V.h(t["email"])}</td><td>{V.h(t["rol"])}</td><td>vence {_fecha(t["expira"])}</td><td>{revocar}</td></tr>'
-    invitar = ""
-    if admin:
-        invitar = (f'<div class="card" style="margin-top:24px"><div class="card-head"><div class="card-title">Invitar a alguien</div></div>'
-                   f'<form method="post" action="/invitar" class="form">{V.csrf(token)}<div class="fila">'
-                   f'{V.campo("email", "Correo", "email", clase="campo", autocomplete="off")}'
-                   f'<label class="campo">Rol<select name="rol"><option value="miembro">Miembro</option><option value="admin">Administrador</option></select></label></div>'
-                   f'<div><button class="btn hot" type="submit">Enviar invitación</button></div></form></div>')
-    cuerpo = (V.cabecera("Empresa", "Equipo", "Quiénes pueden entrar a Pliego por " + empresa["nombre"] + ".")
-              + V.mensajes(ok=request.query_params.get("ok"), error=request.query_params.get("error"), clase="msg")
-              + f'<div class="card"><table class="tabla"><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Verificado</th><th>Último acceso</th><th></th></tr>{filas}</table></div>'
-              + (f'<div class="card" style="margin-top:24px"><div class="card-head"><div class="card-title">Invitaciones pendientes</div></div>'
-                 f'<table class="tabla"><tr><th>Correo</th><th>Rol</th><th></th><th></th></tr>{pendientes}</table></div>' if pendientes else "")
-              + invitar)
-    return V.privada("Equipo", cuerpo, "/empresa/equipo", usuario, empresa, token)
+    empresa, token, q = request.state.empresa, sesiones.token_csrf(request), request.query_params
+    return V.privada(request, "empresa/equipo.html", "Equipo", "/empresa/equipo", usuario, empresa, token,
+                     admin=usuario["rol"] == "admin", equipo=cuentas.equipo(empresa["id"]),
+                     pendientes=cuentas.invitaciones_pendientes(empresa["id"]), ok=q.get("ok"), error=q.get("error"))
 
 
 @router.post("/invitar")
@@ -171,33 +128,12 @@ def _poner(perfil: dict, ruta: str, valor) -> None:
 
 @router.get("/empresa/documentos", response_class=HTMLResponse)
 def documentos(request: Request, usuario: dict = Depends(sesiones.requiere_sesion)):
-    empresa, token = request.state.empresa, sesiones.token_csrf(request)
+    empresa, token, q = request.state.empresa, sesiones.token_csrf(request), request.query_params
     perfil = empresa.get("perfil") or {}
-    docs = perfil.get("documentos") or {}
-    filas = ""
-    for clave, etiqueta, campos in CARPETA.DOCUMENTOS:
-        d = docs.get(clave) or {}
-        extras = ""
-        for nombre, tipo, et in campos:
-            if tipo == "check":
-                extras += (f'<label class="lg-check" style="font-size:13px"><input type="checkbox" name="{clave}__{nombre}" value="1"'
-                           f'{" checked" if d.get(nombre) else ""}> {V.h(et)}</label>')
-            else:
-                extras += V.campo(f"{clave}__{nombre}", et, tipo, valor=d.get(nombre, ""), requerido=False, clase="campo")
-        filas += (f'<div class="card" style="padding:14px;margin-bottom:10px"><label class="lg-check" style="font-size:15px;margin-bottom:8px">'
-                  f'<input type="checkbox" name="{clave}__tiene" value="1"{" checked" if d.get("tiene") else ""}> <b>{V.h(etiqueta)}</b></label>'
-                  f'<div class="fila">{V.campo(f"{clave}__archivo", "Nombre del archivo", valor=d.get("archivo", ""), requerido=False, clase="campo")}{extras}</div></div>')
-    propuesta = "".join(V.campo("p__" + ruta, et, tipo, valor=_leer(perfil, ruta) or "", requerido=False, clase="campo")
-                        for ruta, et, tipo in PROPUESTA)
-    cuerpo = (V.cabecera("Empresa", "Documentos y datos para la propuesta",
-                         "Lo que el checklist verifica y lo que el generador escribe en los formatos.")
-              + V.mensajes(ok=request.query_params.get("ok"), error=request.query_params.get("error"), clase="msg")
-              + f'<form method="post" action="/empresa/documentos" class="form" style="max-width:none">{V.csrf(token)}'
-                f'<div class="kicker">Carpeta de documentos</div><p class="mute" style="font-size:13px;margin:0 0 8px">Marque los que tiene al día. '
-                f'El RUP, los estados financieros y la capacidad residual se completan con lo que ya está en el perfil.</p>{filas}'
-                f'<div class="kicker" style="margin-top:18px">Datos para la propuesta</div><div class="card"><div class="fila">{propuesta}</div></div>'
-                f'<div style="margin-top:14px"><button class="btn hot" type="submit">Guardar</button></div></form>')
-    return V.privada("Documentos", cuerpo, "/empresa/documentos", usuario, empresa, token)
+    propuesta = [(ruta, et, tipo, _leer(perfil, ruta) or "") for ruta, et, tipo in PROPUESTA]
+    return V.privada(request, "empresa/documentos.html", "Documentos", "/empresa/documentos", usuario, empresa, token,
+                     DOCUMENTOS=CARPETA.DOCUMENTOS, docs=perfil.get("documentos") or {}, propuesta=propuesta,
+                     ok=q.get("ok"), error=q.get("error"))
 
 
 @router.post("/empresa/documentos")

@@ -1,0 +1,10 @@
+{% extends "publica.html" %}
+{% from "_macros.html" import mensajes, csrf %}
+{% from "publico/_badge.html" import badge %}
+{% block tarjeta %}
+<div>{{ badge() }}<h1>Revise su correo.</h1>
+<p class="sub">Si <b>{{ email }}</b> es una cuenta nueva, le enviamos un enlace para confirmarla. Vale por 24 horas. Si no llega, mire la carpeta de spam.</p></div>
+{{ mensajes(ok=ok, error=error) }}
+{% if usuario %}<form method="post" action="/verificar/reenviar">{{ csrf(csrf_token) }}<button class="ad-btn-ghost" type="submit">Reenviar el correo</button></form>{% endif %}
+<div class="lg-links"><a href="/login">Ir al inicio de sesión</a><a href="/">Volver</a></div>
+{% endblock %}
