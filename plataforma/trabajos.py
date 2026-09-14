@@ -40,6 +40,7 @@ _en_cola: set[tuple] = set()
 _candado = threading.Lock()
 _hilos: list[threading.Thread] = []
 _parar = threading.Event()
+ultimo_creditos: int | None = None   # lo que Croma reporto en la ultima descarga (para /admin)
 
 
 def _encolar(trabajo: tuple) -> bool:
@@ -87,6 +88,9 @@ def descargar_departamento(departamento: str, api=None) -> dict:
         as_of = max((r.get("_as_of") or "" for r in adjudicados + abiertos + contratos), default=None) or None
         resultado = warehouse.upsert(departamento, contratos, adjudicados, abiertos, as_of=as_of, incremental=incremental)
         cache.limpiar_todo()
+        global ultimo_creditos
+        if api.creditos_restantes is not None:
+            ultimo_creditos = api.creditos_restantes
         db.ejecutar("UPDATE pliego.descargas_departamento SET estado = 'lista', as_of = %s, ultima_ok = now(), paginas = %s, "
                     "error = NULL, actualizado = now() WHERE departamento = %s", [as_of, api.llamadas, departamento])
         log.info("descarga %s: %s (llamadas %s, creditos %s)", departamento, resultado, api.llamadas, api.creditos_restantes)

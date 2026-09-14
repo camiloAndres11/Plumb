@@ -1,20 +1,17 @@
 # Plataforma: Pliego para una empresa real
 
 `plataforma/` es la versión de Pliego que una constructora usa sola: se registra,
-verifica su correo, invita a su equipo, describe su empresa y los enfoques trabajan
-con sus datos (Croma, por sus departamentos). Corre en el **puerto 8100**; la demo
+verifica su correo, invita a su equipo, describe su empresa, sube sus pliegos, y los
+cinco enfoques trabajan con sus datos. Corre en el **puerto 8100**; la demo
 (`demo/app.py`, puerto 8000) sigue intacta como vitrina con el perfil ficticio, así
 que se pueden mostrar las dos a la vez.
-
-Plan completo por fases: `~/.claude/plans/mira-la-estructura-del-majestic-russell.md`
-(resumen abajo en "Estado").
 
 ## Correr en local
 
 ```
 docker compose up -d db                       # Postgres en 127.0.0.1:5432 (plomada/plomada)
-cp .env.example .env                          # y llenar DATABASE_URL, SECRET_KEY, CROMA_API_KEY
-python -m plataforma.migrar                   # crea el esquema `pliego`
+cp .env.example .env                          # y llenar DATABASE_URL, SECRET_KEY, CROMA_API_KEY, ANTHROPIC_API_KEY
+python -m plataforma.migrar                   # crea/actualiza el esquema `pliego`
 uvicorn plataforma.app:app --port 8100        # la plataforma
 uvicorn demo.app:app --port 8000              # la demo, en paralelo si se quiere
 ```
@@ -22,99 +19,28 @@ uvicorn demo.app:app --port 8000              # la demo, en paralelo si se quier
 Con Docker completo: `docker compose up` levanta `db`, `api` (:8000, Plomada) y
 `plataforma` (:8100). La demo no está en compose: es `uvicorn demo.app:app`.
 
-`/health` responde `{"ok": true}` cuando Postgres tiene el esquema; con `ok: false`
-dice qué falta (variable o migración).
+`/health` responde `{"ok": true}` cuando Postgres tiene el esquema y dice qué hay:
+warehouse (departamentos, `as_of`), cola de trabajos, último refresco, si hay llaves
+de Croma y de Anthropic.
 
 Sin `SMTP_URL`, los correos (verificación, reset, invitación) **no salen**: el enlace
 se imprime en el log de uvicorn con nivel WARNING. Es el modo de desarrollo.
 
-## Cuentas (fase 1)
+## Flujo de una empresa
 
-- La cuenta es la empresa (NIT con dígito de verificación DIAN validado). Quien se
-  registra es `admin`; invita por correo a `admin` o `miembro`. Un correo es una sola
-  cuenta en toda la plataforma.
-- Contraseñas con argon2id; sesión en servidor (`pliego.sesiones`) con la cookie
-  `pliego_sesion` (solo el id, firmado); expira a los 30 días sin uso; CSRF por
-  sesión en todo POST; rate limit por IP y por correo en login, registro, reset e
-  invitaciones (`pliego.intentos`).
-- Registro, "olvidé mi contraseña" y reenvío responden igual exista o no el correo.
-- Cambiar la contraseña (o restablecerla) cierra las demás sesiones.
-- `/terminos` y `/privacidad` son borradores marcados `<!-- REVISAR LEGAL -->`.
-
-## Perfil de la empresa (fase 2)
-
-Wizard de tres pasos en `/empresa/perfil/{1,2,3}` (solo admins editan): sede y
-departamentos donde licita y códigos UNSPSC; RUP, indicadores financieros y
-organizacionales, capacidad residual y cuantía objetivo; contratos de experiencia.
-Se guarda en `pliego.empresas.perfil` (JSONB) con **la misma forma que
-`pliego/filtro/fixtures/perfil_constructora.json`**, validada por
-`plataforma/esquemas.py`. Los departamentos van también a `empresas.departamentos` y
-quedan `pendiente` en `pliego.descargas_departamento` (la fase 3 los descarga).
-
-`pliego/comun/contexto.py` lleva la empresa actual (ContextVar) durante cada petición
-con sesión; `pliego/filtro/datos.perfil()` devuelve ese perfil si hay contexto y el
-ficticio si no (demo, pruebas). Catálogos en `plataforma/catalogos.py`.
-
-## Datos por empresa (fase 3)
-
-- **Warehouse**: `pliego/comun/warehouse.py`, un DuckDB en disco
-  (`$PLATAFORMA_DATOS/warehouse/pliego.duckdb`) con `base_todo`, `procesos_todo`,
-  `abiertos_todo` (+ `departamento_descarga`, `descargado_en`), agregados
-  `base_ventana` / `hist_unico`, `meta` por departamento y la vista `alertas_todo`
-  con las banderas del filtro calculadas contra `current_date`. Cada petición consulta
-  con vistas temporales `base`/`procesos`/`abiertos`/`alertas` filtradas por los
-  departamentos de la empresa, así que **las SQL de `pliego/*/semilla.py` corren sin
-  cambios** (`fuente.py`, modo `warehouse`). El archivo queda bloqueado por el proceso
-  que lo abre: no se puede inspeccionar con otro Python mientras la plataforma corre
-  (usar `/health` o `/admin`).
-- **Descargas**: `plataforma/trabajos.py`, un hilo con cola. Al guardar departamentos
-  en el perfil se encolan; la primera vez baja todo el histórico desde
-  `CROMA_DESDE_ANIO`, después incremental desde `ultima_ok − 2 días`; los abiertos se
-  reemplazan enteros. Refresco diario a las 05:00 (Colombia) de todo lo `lista`; al
-  arrancar retoma lo pendiente/en error. Una búsqueda fallida deja el departamento en
-  `error` (nada a medias) y se reintenta desde `/empresa/datos`. Sin `CROMA_API_KEY`
-  no hay descargas y se sirve lo que haya. La caché de disco de `fuente._paginas`
-  (`data/cache/croma/`) evita repetir páginas del día.
-- **Caché en memoria**: `pliego/comun/cache.py` reemplaza los `lru_cache` de los
-  `datos.py`: llave por ámbito (departamentos), versión del warehouse y, para lo que
-  depende del perfil, la empresa. Con fixtures se comporta como antes.
-- Estado por departamento en `pliego.descargas_departamento`; `/health` reporta
-  warehouse y cola.
-
-## Enfoques dentro de la plataforma (fase 4)
-
-`plataforma/enfoques.py` monta filtro, simulador y radar bajo `/app/<enfoque>` con
-`pliego/comun/prefijo.py::ConPrefijo` (reescribe las URLs absolutas de cada app y
-cambia su sidebar por la de la plataforma) detrás de `Protegido`, un guardia ASGI:
-sin sesión → `/login`; sin verificar → `/verificar`; sin perfil completo → wizard;
-sin datos → `/empresa/datos`. El panel (`pliego/comun/panel.py`, compartido con la
-demo) muestra las tarjetas con cifras de la empresa; checklist y generador aparecen
-como "Próximamente" hasta la fase 5. Las cabeceras de los enfoques dicen "datos al
-<as_of>" (`fuente.etiqueta_fecha()`) en vez de "snapshot".
-
-## Pliegos (fase 5)
-
-- `/pliegos`: subir el PDF del pliego (máx. 30 MB, sha256 para no repetir), ver estado
-  (`subido → extrayendo → listo | error`), elegir con cuál trabajar, reintentar, borrar.
-  Archivos en `$PLATAFORMA_DATOS/pliegos/<empresa>/<sha>.pdf` y las páginas citadas
-  renderizadas en `.../<sha>/p<N>.png`.
-- `plataforma/extraccion.py`: **una llamada a `claude-opus-5`** con el PDF adjunto y una
-  tool `registrar_extraccion` obligatoria cuyo `input_schema` es el contrato (proceso,
-  lotes, requisitos con cita y página, campos para la propuesta, formatos). El resultado
-  se convierte a las mismas formas de `requisitos_*.json` y `pliego_*.json`, y poppler
-  (`pdftotext -bbox-layout`, `pdftoppm`) localiza cada cita y renderiza las páginas
-  (`pliego/checklist/semilla.py::localizar`). Costo estimado en `pliegos.costo_usd`.
-  Requiere `ANTHROPIC_API_KEY` (la de la plataforma, no BYOK); sin ella los pliegos
-  quedan en `subido`. Corre en el hilo de `trabajos.py`.
-- `pliego/checklist/datos.py` y `pliego/generador/datos.py` leen el pliego del
-  contexto (`contexto.pliego`) si hay uno elegido (`usuarios.pliego_actual` o el último
-  listo de la empresa); sin contexto siguen sobre fixtures.
-- La carpeta de documentos que verifica el checklist sale de `plataforma/carpeta.py`:
-  RUP y experiencia (actividades por familia UNSPSC), indicadores y capacidad residual
-  del perfil, más lo que la empresa declara en `/empresa/documentos` (también los datos
-  para la propuesta: representante legal, contacto, estados financieros detallados).
-- Pendiente de verificar con llave real: calidad de la extracción contra
-  `requisitos_SI-LP-004-2021.json` (recall de habilitantes) y el costo por pliego.
+1. `/registro`: empresa (NIT con dígito de verificación) + primer usuario → correo de
+   verificación → `/verificar/<token>` inicia sesión.
+2. `/empresa/perfil/{1,2,3}`: sede y departamentos donde licita y códigos UNSPSC;
+   RUP, indicadores y capacidad; experiencia. Al guardar los departamentos, la
+   plataforma descarga sus procesos y contratos de Croma en segundo plano
+   (`/empresa/datos` muestra el estado; la primera vez son minutos).
+3. `/panel`: tarjetas con cifras de la empresa; filtro, simulador y radar bajo
+   `/app/<enfoque>` en cuanto un departamento esté listo.
+4. `/pliegos`: subir el PDF; Claude extrae requisitos, lotes y formatos; con un pliego
+   listo se activan checklist y generador. `/empresa/documentos`: qué documentos tiene
+   la empresa y los datos para redactar la propuesta.
+5. `/empresa/equipo`: invitar admins o miembros. `/cuenta`: nombre, contraseña,
+   sesiones abiertas.
 
 ## Variables de entorno
 
@@ -126,22 +52,99 @@ como "Próximamente" hasta la fase 5. Las cabeceras de los enfoques dicen "datos
 | `SMTP_URL` | `smtp://usuario:clave@host:587?tls=1`; vacío = los correos se imprimen en el log |
 | `CORREO_REMITENTE` | remitente de los correos |
 | `PLATAFORMA_ADMINS` | emails (coma) que ven `/admin` |
-| `PLATAFORMA_DATOS` | raíz de datos en disco (warehouse, caché de Croma, PDFs) |
-| `PLIEGO_FUENTE`, `CROMA_*` | ver `docs/enfoques/croma.md` |
+| `PLATAFORMA_DATOS` | raíz de datos en disco (warehouse, caché de Croma, PDFs); en Render, el disco persistente |
+| `CROMA_API_KEY`, `CROMA_DESDE_ANIO`, `CROMA_*` | ver `docs/enfoques/croma.md`; sin llave no se descargan departamentos |
+| `ANTHROPIC_API_KEY` | extracción de pliegos con Claude; sin llave los pliegos quedan en `subido` |
+
+`PLIEGO_FUENTE` lo fija la plataforma en `warehouse` al arrancar, aunque el `.env`
+compartido con la demo diga otra cosa.
 
 ## Estructura
 
 ```
 plataforma/
-  app.py          FastAPI, mounts, manejo de errores
+  app.py          FastAPI, middlewares (sesión, acceso), manejo de errores, /health
   config.py       pydantic-settings (patrón de api/app/config.py)
   db.py           pool psycopg + uno/todos/ejecutar/transaccion
   migrar.py       aplica sql/*.sql una vez cada uno (tabla pliego.migraciones)
-  vistas.py       layouts publica() y privada(), campos de formulario, mensajes
-  routers/        publico, empresa, panel, cuenta, admin, pliegos
-  sql/            001_esquema.sql, ...
-  tests/
+  seguridad.py    argon2id, firmas, rate limit (pliego.intentos), NIT con DV, email
+  sesiones.py     cookie -> request.state.usuario/.empresa; contexto de empresa; guardias; CSRF
+  cuentas.py      registro, verificación, login, reset, invitaciones, roles
+  correo.py       SMTP por URL o consola
+  esquemas.py     PerfilEmpresa (misma forma que perfil_constructora.json), pasos del wizard
+  catalogos.py    departamentos y UNSPSC de construcción
+  trabajos.py     cola en hilo: descargas de Croma por departamento, refresco diario, extracción de pliegos
+  enfoques.py     monta pliego/*/app.py bajo /app/* con ConPrefijo + guardia Protegido
+  pliegos.py      guardar PDF, extraer, elegir; extraccion.py: Claude + poppler; carpeta.py: documentos de la empresa
+  vistas.py       layouts publica() y privada(), campos, mensajes, sidebar
+  routers/        publico, panel, empresa (equipo, datos, documentos), perfil, cuenta, pliegos, admin
+  sql/            001_esquema.sql, 002_pliegos.sql
+  tests/          seguridad y esquemas (puros); flujo, datos y pliegos (Postgres real, warehouse temporal, sin red)
+pliego/comun/
+  contexto.py     la empresa (y su pliego) en un ContextVar durante cada petición
+  warehouse.py    DuckDB en disco por departamento; consultar(sql, ambito) con vistas temporales
+  cache.py        cache por ámbito + versión del warehouse (reemplaza lru_cache en los datos.py)
+  prefijo.py      ConPrefijo (montar apps bajo un prefijo) y sidebar_con_hub (parche de la demo)
+  panel.py        tarjetas con cifras, compartidas por demo y plataforma
 ```
+
+## Cómo funciona por dentro
+
+- **Cuentas**: la cuenta es la empresa (NIT). Quien se registra es `admin`; invita
+  `admin` o `miembro`. Un correo es una sola cuenta. argon2id; sesión en servidor con
+  cookie firmada (solo el id), 30 días sin uso; CSRF por sesión en todo POST; rate
+  limit por IP y correo. Registro, "olvidé" y reenvío responden igual exista o no el
+  correo. Cambiar/restablecer la contraseña cierra las demás sesiones. `/terminos` y
+  `/privacidad` son borradores marcados `<!-- REVISAR LEGAL -->`.
+- **Perfil**: `pliego.empresas.perfil` (JSONB) con exactamente la forma de
+  `pliego/filtro/fixtures/perfil_constructora.json`, validada por `esquemas.py`.
+  `pliego/comun/contexto.py` lo pone en contexto y `filtro/datos.perfil()` lo usa; sin
+  contexto (demo, pruebas) todo sigue sobre fixtures.
+- **Datos**: `pliego/comun/warehouse.py` es un DuckDB en disco
+  (`$PLATAFORMA_DATOS/warehouse/pliego.duckdb`) con `base_todo`, `procesos_todo`,
+  `abiertos_todo` (+ `departamento_descarga`), agregados, `meta` y la vista
+  `alertas_todo` calculada contra `current_date`. Cada petición consulta con vistas
+  temporales filtradas por los departamentos de la empresa, así que **las SQL de
+  `pliego/*/semilla.py` corren sin cambios** (`fuente.py`, modo `warehouse`). El archivo
+  queda bloqueado por el proceso que lo abre: para inspeccionarlo con la plataforma
+  corriendo, usar `/health` o `/admin`. `trabajos.py` descarga por departamento
+  (completo la primera vez, incremental después, refresco diario 05:00 Colombia, retoma
+  pendientes al arrancar); una búsqueda fallida deja el departamento en `error`, nada a
+  medias. `pliego/comun/cache.py` cachea por ámbito y versión del warehouse.
+- **Enfoques**: `enfoques.py` monta las cinco apps bajo `/app/<enfoque>` con
+  `ConPrefijo` (reescribe URLs, cambia la sidebar) detrás de `Protegido` (sesión,
+  verificado, perfil completo, datos; checklist y generador exigen además un pliego).
+- **Pliegos**: `extraccion.py` hace **una llamada a `claude-opus-5`** con el PDF y una
+  tool obligatoria cuyo `input_schema` es el contrato; convierte a las formas de
+  `requisitos_*.json` y `pliego_*.json`; poppler localiza las citas y renderiza las
+  páginas. La carpeta de documentos sale de `carpeta.py` (perfil + lo declarado en
+  `/empresa/documentos`). `checklist/datos.py` y `generador/datos.py` leen del contexto.
+- **Operación**: `/admin` (solo `PLATAFORMA_ADMINS`): empresas, descargas (encolar),
+  pliegos y costo, cola, créditos de Croma. Log de acceso por petición con usuario y
+  empresa (`pliego.acceso`).
+
+## Despliegue en Render
+
+`render.yaml` define `pliego-app`: contenedor de `plataforma/Dockerfile`, `/health`,
+**un disco persistente en `/app/data`** (warehouse, caché de Croma, PDFs; sin disco cada
+deploy los borraría) y `numInstances: 1` (la cola y el warehouse viven en el proceso).
+Variables `sync: false` que hay que poner en el panel: `SMTP_URL`, `PLATAFORMA_ADMINS`,
+`CROMA_API_KEY`, `ANTHROPIC_API_KEY`. El contenedor corre `python -m plataforma.migrar`
+antes de arrancar. `BASE_URL` debe ser el host real del servicio.
+
+## Límites conocidos
+
+- Croma tarda 1,5–30 s por página; la primera descarga de un departamento son minutos
+  y ~50–100 créditos. `/catalog` anuncia "100 requests / 24h" que hoy no aplica; si
+  aparece, limitaría el arranque en frío.
+- Un solo worker de uvicorn. Para escalar: cola y candado del warehouse a Postgres
+  (`SELECT … FOR UPDATE SKIP LOCKED`) y un proceso aparte para los trabajos.
+- La extracción con Claude está probada con un cliente simulado (la extracción manual
+  del fixture); la calidad y el costo reales se miden con `ANTHROPIC_API_KEY` subiendo
+  `pliego_SI-LP-004-2021.pdf` y comparando con `requisitos_SI-LP-004-2021.json`.
+- Sin poppler no hay resaltado ni páginas del pliego (el checklist funciona igual).
+- `f_al_tope_minima` y `f_cierre_movido` quedan en NULL con datos de Croma (ver
+  `docs/enfoques/croma.md`).
 
 ## Estado
 
@@ -152,5 +155,5 @@ plataforma/
 | 2 | perfil de la empresa (wizard) y contexto de empresa para los enfoques | hecha |
 | 3 | datos de Croma por departamento en un warehouse DuckDB en disco, trabajos en segundo plano | hecha |
 | 4 | filtro, radar y simulador montados bajo `/app/*` con sesión; panel con cifras de la empresa | hecha |
-| 5 | pliegos: subir PDF, extracción con Claude, checklist y generador sobre él | hecha (la llamada real a Claude queda por probar con `ANTHROPIC_API_KEY`) |
-| 6 | admin, health, Render con disco, documentación, PR a `dev` | pendiente |
+| 5 | pliegos: subir PDF, extracción con Claude, checklist y generador sobre él | hecha (llamada real a Claude por verificar) |
+| 6 | admin, health, log de acceso, Render con disco, documentación, PR a `dev` | hecha |

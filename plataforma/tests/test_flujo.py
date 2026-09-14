@@ -241,3 +241,27 @@ def test_wizard_de_perfil_guarda_y_deja_departamentos_pendientes(cliente):
     finally:
         contexto.reset(t)
     assert D.perfil()["nombre"] == "Constructora Andina S.A.S."   # sin contexto: el fixture
+
+
+def test_admin_solo_para_plataforma_admins(cliente):
+    from plataforma import config as C
+    from plataforma import db
+    sufijo = uuid.uuid4().hex[:8]
+    admin = f"adm-{sufijo}@ejemplo.test"
+    nit_con_dv, nit = _nit()
+    cliente.cookies.clear()
+    cliente.post("/registro", data={"empresa": "Admin Prueba", "nit": nit_con_dv, "nombre": "Ana", "email": admin,
+                                    "clave": "una-clave-larga-1", "acepta": "1"})
+    cliente.get(_correo_enlace(admin, "/verificar"))
+    assert cliente.get("/admin").status_code == 403           # usuario normal
+    assert 'href="/admin"' not in cliente.get("/panel").text
+    original = C.config.plataforma_admins
+    C.config.plataforma_admins = admin
+    try:
+        r = cliente.get("/admin")
+        assert r.status_code == 200 and "Admin Prueba" in r.text and "Descargas por departamento" in r.text
+        assert 'href="/admin"' in cliente.get("/panel").text
+        assert cliente.get("/health").json()["trabajos"] is False   # sin llaves no arrancan los hilos
+    finally:
+        C.config.plataforma_admins = original
+    db.ejecutar("DELETE FROM pliego.empresas WHERE nit = %s", [nit])

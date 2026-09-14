@@ -141,6 +141,9 @@ def sidebar(actual: str, usuario: dict | None, empresa: dict | None, csrf_token:
     lis = "".join(
         f'<a class="side-item{" on" if actual.startswith(ruta.rstrip("/")) and ruta != "/" else ""}" href="{h(ruta)}">'
         f'{W.ICONOS.get(ic, "")}{h(t)}</a>' for ruta, ic, t in ITEMS_SIDEBAR)
+    from plataforma.config import config
+    if usuario and usuario.get("email", "").lower() in config.admins:
+        lis += f'<a class="side-item{" on" if actual.startswith("/admin") else ""}" href="/admin">{W.ICONOS.get("lista", "")}Admin</a>'
     pie = ""
     if usuario:
         pie = (f'<div class="side-foot"><div class="kicker">Sesión</div><b>{h((empresa or {}).get("nombre", ""))}</b>'

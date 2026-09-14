@@ -19,18 +19,20 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from plataforma import db, enfoques, seguridad, sesiones, trabajos
+from plataforma import db, enfoques, extraccion, seguridad, sesiones, trabajos
 from plataforma import vistas as V
 from plataforma.config import RAIZ, VERSION, config
-from pliego.comun import warehouse
+from pliego.comun import croma, warehouse
 
 log = logging.getLogger("pliego.plataforma")
+acceso = logging.getLogger("pliego.acceso")
 
 # La plataforma SIEMPRE sirve los enfoques desde el warehouse por empresa
 # (pliego/comun/fuente.py modo warehouse), aunque el .env compartido con la
@@ -63,6 +65,19 @@ app.mount("/static", EstaticosDeDos(), name="static")
 app.middleware("http")(sesiones.cargar)
 
 
+@app.middleware("http")
+async def _acceso(request: Request, call_next):
+    """Una linea por peticion con usuario y empresa: es lo que hay que
+    grepear cuando un cliente dice "no me funciona"."""
+    t0 = time.monotonic()
+    respuesta = await call_next(request)
+    if not request.url.path.startswith("/static"):
+        u, e = getattr(request.state, "usuario", None), getattr(request.state, "empresa", None)
+        acceso.info("%s %s %s %dms usuario=%s empresa=%s", request.method, request.url.path, respuesta.status_code,
+                    (time.monotonic() - t0) * 1000, u["id"] if u else "-", e["id"] if e else "-")
+    return respuesta
+
+
 @app.get("/health")
 def health():
     ok, detalle = db.disponible()
@@ -71,9 +86,14 @@ def health():
         wh_detalle = {"ok": True, "departamentos": len(wh["departamentos"]), "as_of": wh["as_of"], "ruta": str(warehouse.ruta())}
     except Exception as e:   # sin disco o corrupto: se reporta, no se cae
         wh_detalle = {"ok": False, "error": str(e)[:200]}
+    ultimo = None
+    if ok:
+        fila = db.uno("SELECT max(ultima_ok) AS u FROM pliego.descargas_departamento")
+        ultimo = fila["u"].isoformat() if fila and fila["u"] else None
     return JSONResponse({"ok": ok, "version": VERSION, "postgres": detalle, "warehouse": wh_detalle,
-                         "cola": trabajos.en_cola(), "secret_key": bool(config.secret_key)},
-                        status_code=200 if ok else 503)
+                         "cola": trabajos.en_cola(), "ultimo_refresco": ultimo, "trabajos": bool(trabajos._hilos),
+                         "croma": croma.disponible(), "extraccion": extraccion.disponible(),
+                         "secret_key": bool(config.secret_key)}, status_code=200 if ok else 503)
 
 
 @app.exception_handler(sesiones.Redirigir)
@@ -93,8 +113,8 @@ async def _sin_base(request: Request, exc: Exception):
     return JSONResponse({"error": {"codigo": "servicio_no_configurado", "mensaje": str(exc)}}, status_code=503)
 
 
-from plataforma.routers import cuenta, empresa, panel, perfil, pliegos, publico  # noqa: E402  (registran rutas sobre `app`)
+from plataforma.routers import admin, cuenta, empresa, panel, perfil, pliegos, publico  # noqa: E402  (registran rutas sobre `app`)
 
-for r in (publico, panel, empresa, perfil, cuenta, pliegos):
+for r in (publico, panel, empresa, perfil, cuenta, pliegos, admin):
     app.include_router(r.router)
 enfoques.montar(app)

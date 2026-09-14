@@ -1,4 +1,4 @@
-# Blueprint de Render para Plomada: tres servicios en un solo deploy.
+# Blueprint de Render para Plomada: cuatro servicios en un solo deploy.
 #
 #   1. plomada-db     -- Postgres del warehouse (plan free)
 #   2. plomada-api    -- API publica + MCP, contenedor Docker de api/
@@ -6,6 +6,10 @@
 #                        lo sirve. No hay servidor propio -- las fichas, el
 #                        buscador y los municipios se hidratan en el navegador
 #                        contra el API (services[].envVars.PLOMADA_API_URL).
+#   4. pliego-app     -- La plataforma Pliego para empresas (plataforma/),
+#                        contenedor Docker con DISCO persistente: ahi viven
+#                        el warehouse DuckDB, la cache de Croma y los PDFs.
+#                        Sin disco, cada deploy los borraria.
 #
 # Las reglas de `routes` del sitio son la traduccion de site/_redirects al
 # formato de Render, y NO son opcionales: /contrato/<slug>/ y
@@ -80,6 +84,49 @@ services:
       - path: /static/vendor/*
         name: Cache-Control
         value: public, max-age=86400
+
+  # --- Plataforma Pliego (cuentas, perfil, datos por empresa) ----------------
+  - type: web
+    name: pliego-app
+    runtime: docker
+    dockerfilePath: ./plataforma/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    # Un solo worker: el warehouse DuckDB y la cola de trabajos viven en el
+    # proceso (ver pliego/comun/warehouse.py). Escalar = pasar la cola a Postgres.
+    numInstances: 1
+    disk:
+      name: pliego-datos
+      mountPath: /app/data
+      sizeGB: 5
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: plomada-db
+          property: connectionString
+      - key: PLATAFORMA_DATOS
+        value: /app/data
+      - key: PLIEGO_FUENTE
+        value: warehouse
+      # URL publica del servicio: va en los enlaces de los correos.
+      - key: BASE_URL
+        value: https://pliego-app.onrender.com
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SMTP_URL
+        sync: false
+      - key: CORREO_REMITENTE
+        value: Pliego <no-responder@pliego.co>
+      - key: PLATAFORMA_ADMINS
+        sync: false
+      - key: CROMA_API_KEY
+        sync: false
+      - key: CROMA_DESDE_ANIO
+        value: "2024"
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: PORT
+        value: "8100"
 
 databases:
   - name: plomada-db
