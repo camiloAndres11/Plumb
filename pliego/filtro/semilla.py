@@ -24,7 +24,7 @@ from pathlib import Path
 import duckdb
 
 RAIZ = Path(__file__).resolve().parents[2]
-WAREHOUSE = RAIZ / "data" / "warehouse" / "plomada.duckdb"
+WAREHOUSE = RAIZ / "legacy" / "plomada" / "data" / "warehouse" / "plomada.duckdb"
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 PROCESOS = """
@@ -100,7 +100,7 @@ SELECT unspsc, count(*) AS n FROM base WHERE unspsc LIKE 'V1.%' GROUP BY 1
 
 def main() -> int:
     if not WAREHOUSE.exists():
-        print(f"no existe {WAREHOUSE}; corre pipeline/build.py y pipeline/alertas.py primero")
+        print(f"no existe {WAREHOUSE}; corre legacy/plomada/pipeline/build.py y .../alertas.py primero")
         return 1
     FIXTURES.mkdir(exist_ok=True)
     con = duckdb.connect(str(WAREHOUSE), read_only=True)

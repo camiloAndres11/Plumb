@@ -19,7 +19,7 @@ from plataforma import vistas as V
 from plataforma.config import RAIZ
 
 router = APIRouter()
-LANDING = RAIZ / "plomada" / "landing.html"
+LANDING = RAIZ / "plataforma" / "static" / "landing.html"
 BADGE = '<span class="ad-badge"><span class="ad-dot"></span>Para constructoras que licitan obra pública</span>'
 
 

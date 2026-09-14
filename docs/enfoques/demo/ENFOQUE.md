@@ -19,12 +19,12 @@ tiene «← Panel» en su sidebar.
 
 ## Qué se construyó aquí
 
-- `demo/app.py`: un FastAPI que sirve la landing (`plomada/landing.html`
+- `demo/app.py`: un FastAPI que sirve la landing (`plataforma/static/landing.html`
   con «Entrar» → `/login`), el login, el panel, y **monta las cinco apps
   de `pliego/` sin modificarlas** bajo un prefijo.
-- `docs/enfoques/<enfoque>/`: el `ENFOQUE.md` y el `diseno/` de cada rama,
-  reubicados para que convivan (en cada rama siguen en `docs/`).
-- `docs/enfoques/demo/`: este documento y el diseño del login y el panel.
+- `docs/enfoques/<enfoque>/ENFOQUE.md`: el documento de cada enfoque. Los canvas
+  de diseño están en el tag `archivo/disenos-enfoques`.
+- `docs/enfoques/demo/`: este documento.
 
 ## El truco que hay que saber
 
@@ -36,7 +36,7 @@ URLs de raíz para que lleven el prefijo del montaje. Deja en paz `/panel`
 y `/login`. Es un atajo de demo; si un enfoque pasa a `dev`, sus enlaces
 deben construirse con el `root_path` de la petición.
 
-`/static` del concentrador es el de la landing (`plomada/static`); el
+`/static` del concentrador es el de la landing (`plataforma/static`); el
 `base.css` de las apps se sirve por su propio montaje (`/filtro/static/…`).
 
 ## Qué está simulado
@@ -48,6 +48,6 @@ deben construirse con el `root_path` de la petición.
 
 ## Cambios a código compartido
 
-`plomada/landing.html` **no se modifica en disco**: el reemplazo de
+`plataforma/static/landing.html` **no se modifica en disco**: el reemplazo de
 `href="/tablero/"` por `/login` se hace al servirla. El resto del repo
 queda como en `dev` + `new-landing`.

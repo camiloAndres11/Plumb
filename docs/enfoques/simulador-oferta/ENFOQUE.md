@@ -1,7 +1,7 @@
 # Enfoque 3 · Simulador de oferta
 
-Rama `feature/simulador-oferta`. Diseño en [`diseno/`](diseno/README.md),
-estilo base en [`estilo-base.md`](estilo-base.md).
+Estilo base en [`../../estilo-base.md`](../../estilo-base.md). El canvas de diseño original quedó
+en el tag `archivo/disenos-enfoques`.
 
 ## 1. Promesa al cliente
 

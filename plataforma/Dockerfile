@@ -10,7 +10,6 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project --extra plataforma
 COPY pliego/ ./pliego/
-COPY plomada/landing.html plomada/static/ ./plomada/
 COPY plataforma/ ./plataforma/
 # Usuario sin privilegios: poppler parsea PDFs que sube cualquier usuario
 # registrado, y un fallo ahi no debe caer como root sobre el disco de datos.

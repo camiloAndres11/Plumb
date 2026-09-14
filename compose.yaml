@@ -1,0 +1,5 @@
+# `docker compose up` desde la raiz: el archivo real esta en deploy/ y este
+# lo incluye para que compose lea el .env de aqui (lo busca junto al primer
+# archivo) y las rutas de build sigan valiendo. Necesita Compose >= 2.20.
+include:
+  - deploy/docker-compose.yml

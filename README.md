@@ -1,14 +1,14 @@
 # Pliego
 
-<img src="./project-logo.png" alt="Pliego" width="160" />
+<img src="./plataforma/static/logo.png" alt="Pliego" width="120" />
 
 **Herramienta comercial para constructoras que licitan obra pública en Colombia.**
 Le dice a una empresa a qué procesos del SECOP presentarse, con qué precio, contra
 quién compite, qué le falta para quedar habilitada y le arma la propuesta.
 
 Nació como **Plomada** (Platanus Hack 26, detección de riesgo en contratación de
-obra pública) y pivotó a producto en septiembre de 2026. La metodología, el pipeline
-y la API de Plomada siguen en el repo y documentados en [`docs/PLOMADA.md`](docs/PLOMADA.md).
+obra pública) y pivotó a producto en septiembre de 2026. Plomada sigue en producción,
+aislada en [`legacy/plomada/`](legacy/plomada/README.md).
 
 > Las recomendaciones son estimaciones sobre datos públicos; no garantizan un
 > resultado. Riesgo no es fraude.
@@ -21,7 +21,7 @@ Tres capas, de la más vieja a la más nueva:
 
 | Capa | Carpeta | Qué es | Puerto |
 |---|---|---|---|
-| **Plomada** | `pipeline/`, `sql/`, `api/`, `plomada/` | Ingesta de SECOP II a un warehouse DuckDB, banderas de riesgo, API REST + MCP y sitio estático. En producción en Render/Vercel. | `api/` en 8000 (Docker) |
+| **Plomada** (legado) | `legacy/plomada/` | Ingesta de SECOP II a un warehouse DuckDB, banderas de riesgo, API REST + MCP y sitio estático. En producción en Render; no se refactoriza. | `api/` en 8000 (Docker) |
 | **Pliego, los enfoques** | `pliego/`, `demo/` | Cinco prototipos de producto y una demo que los integra tras la landing. Perfil de constructora ficticio. | `demo/` en **8000** |
 | **Pliego, la plataforma** | `plataforma/` | La versión para empresas reales: cuentas, perfil, datos por departamento, pliegos con Claude, admin. | **8100** |
 
@@ -59,7 +59,7 @@ cachea en `data/cache/croma/`).
 
 **Plataforma (empresas reales):**
 ```bash
-docker compose up -d db                  # Postgres en 127.0.0.1:5432
+docker compose up -d db                  # Postgres en 127.0.0.1:5432 (pide POSTGRES_PASSWORD y SECRET_KEY en .env)
 python -m plataforma.migrar              # esquema `pliego`
 uvicorn plataforma.app:app --port 8100
 ```
@@ -67,8 +67,8 @@ Registro en `http://127.0.0.1:8100/registro`. Sin `SMTP_URL` los correos de
 verificación salen por el log. Guía completa en
 [`docs/enfoques/plataforma.md`](docs/enfoques/plataforma.md).
 
-**Plomada (pipeline + API):** ver [`docs/PLOMADA.md`](docs/PLOMADA.md),
-[`API.md`](API.md) y [`MCP.md`](MCP.md).
+**Plomada (legado, pipeline + API):** ver [`legacy/plomada/README.md`](legacy/plomada/README.md),
+[`API.md`](legacy/plomada/API.md) y [`MCP.md`](legacy/plomada/MCP.md).
 
 **Pruebas y lint:**
 ```bash
@@ -98,7 +98,7 @@ Issues en GitHub Issues de `camiloAndres11/Plumb` (ver `docs/agents/`).
 ## Mapa del repo
 
 ```
-pipeline/  sql/  api/  plomada/   Plomada: ingesta, warehouse, API + MCP, sitio (docs/PLOMADA.md)
+pyproject.toml  uv.lock   un proyecto (pliego, plataforma, demo); extras plataforma, legacy, dev
 pliego/
   comun/     web (shell HTML), fuente (fixtures | croma | warehouse), croma, mapeo_croma,
              warehouse, cache, contexto, prefijo, panel
@@ -106,12 +106,14 @@ pliego/
   tests/
 demo/        la demo integrada (puerto 8000)
 plataforma/  cuentas, perfil, trabajos, enfoques montados, pliegos, admin (puerto 8100)
+  static/    landing.html, landing.css, fuentes, favicon, logo
+deploy/      docker-compose.yml (se usa via compose.yaml de la raiz) y render.yaml
+legacy/plomada/   Plomada, el producto anterior, en produccion y sin refactorizar:
+             pipeline/ sql/ api/ plomada/ frontend/ design/ tests/ (ver su README.md)
 docs/
   enfoques/  ENFOQUE.md por enfoque, croma.md, plataforma.md
   agents/    instrucciones para agentes (issues, etiquetas, dominio, flujo de ramas)
-  PLOMADA.md el README original: metodología, banderas, decisiones
-data/        no versionado: warehouse, caché de Croma, PDFs (data/cache, data/warehouse)
-render.yaml  Render: plomada-db, plomada-api, plomada-sitio, pliego-app (con disco)
+data/        no versionado: warehouse de Pliego, cache de Croma, PDFs
 ```
 
 ## Estado (septiembre de 2026)
@@ -120,7 +122,7 @@ render.yaml  Render: plomada-db, plomada-api, plomada-sitio, pliego-app (con dis
 - Plataforma: seis fases hechas (cuentas, perfil, datos por departamento, enfoques
   con sesión, pliegos con Claude, admin y Render). Pendiente: probar la extracción
   real con `ANTHROPIC_API_KEY`, revisión legal de términos y privacidad, y desplegar.
-- Plomada: en producción (`plumb-duy6.onrender.com`, `plomada-xi.vercel.app`).
+- Plomada: en producción en Render (`plumb-duy6.onrender.com`), aislada en `legacy/plomada/`.
 
 ## Fuentes
 

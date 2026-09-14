@@ -1,27 +1,18 @@
-# Datos: crudos, warehouse y snapshots derivados. Se regeneran con
-# `python pipeline/ingest.py` + `python pipeline/build.py`.
-# base.parquet se publica en R2/S3 versionado, no en git (26 MB).
-data/raw/
-data/warehouse/
-data/exports/
-data/cache/
-out/
-out_web/
+# Datos de Pliego (PLATAFORMA_DATOS): warehouse DuckDB, cache de Croma, PDFs.
+data/
+
+# Plomada (legado): crudos, warehouse, snapshots y salidas. Se regeneran con
+# legacy/plomada/pipeline/ingest.py + build.py. site/ lo regenera build.py.
+legacy/plomada/data/
+legacy/plomada/out/
+legacy/plomada/out_web/
+legacy/plomada/plomada/site/
+legacy/plomada/plomada/.venv/
+
 __pycache__/
 *.pyc
 .venv/
 *.egg-info/
 node_modules/
-.next/
 .env
 .env.local
-web/data/
-
-# Frontend unificado (plomada). Artefactos derivados y entorno local:
-# site/ lo regenera `python3 plomada/build.py`; .venv es solo para geocode.py.
-plomada/.venv/
-plomada/site/
-plomada/__pycache__/
-
-# Vinculo del proyecto en Vercel (IDs de cuenta y token OIDC): no va a git.
-.vercel/
