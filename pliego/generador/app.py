@@ -66,7 +66,8 @@ EXTRA_CSS = """<style>
 
 def _side(actual: str) -> str:
     c = datos.perfil()
-    pie = f'<div class="side-foot"><div class="kicker">Perfil activo</div><b>{W.h(c["nombre"])}</b><small>{W.h(c["ciudad"])} · NIT {W.h(c["nit"])}</small></div>'
+    ciudad = c.get("ciudad") or ((c.get("sede") or {}).get("ciudad") or "").title()
+    pie = f'<div class="side-foot"><div class="kicker">Perfil activo</div><b>{W.h(c.get("nombre"))}</b><small>{W.h(ciudad)} · NIT {W.h(c.get("nit"))}</small></div>'
     return W.sidebar([("/", "doc", "Propuesta"), ("/perfil", "perfil", "Mi perfil")], actual, pie)
 
 
@@ -143,7 +144,7 @@ def api_paquete(lote: int = Query(1, ge=1)):
 
 @app.get("/pliego.pdf")
 def pliego_pdf():
-    return FileResponse(datos.FIXTURES / datos.pliego()["pdf"], media_type="application/pdf")
+    return FileResponse(datos.ruta_pdf(), media_type="application/pdf")
 
 
 @app.get("/documento/{id_doc}.md")
@@ -171,7 +172,7 @@ def paquete_zip(lote: int = Query(1, ge=1)):
         z.writestr("00_origenes.json", __import__("json").dumps(
             [{"documento": d.id, "campos": [c.como_dict() for c in d.campos]} for d in docs], ensure_ascii=False, indent=1))
     return Response(buf.getvalue(), media_type="application/zip",
-                    headers={"Content-Disposition": f'attachment; filename="propuesta_{datos.PROCESO_ID}_grupo{lote}.zip"'})
+                    headers={"Content-Disposition": f'attachment; filename="propuesta_{datos.proceso_id()}_grupo{lote}.zip"'})
 
 
 # ------------------------------------------------------------------ HTML

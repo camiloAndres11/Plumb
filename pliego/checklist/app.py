@@ -19,7 +19,15 @@ from pliego.comun import web as W
 
 app = FastAPI(title="Pliego · Checklist de habilitantes", version="0.1.0")
 app.mount("/static", StaticFiles(directory=str(W.STATIC)), name="static")
-app.mount("/paginas", StaticFiles(directory=str(datos.FIXTURES / "paginas")), name="paginas")
+
+
+@app.get("/paginas/p{n}.png")
+def pagina_png(n: int):
+    """Paginas citadas del pliego (fixtures o el pliego de la empresa)."""
+    ruta = datos.ruta_pagina(n)
+    if not ruta.exists():
+        raise HTTPException(404, "pagina no renderizada")
+    return FileResponse(ruta, media_type="image/png")
 
 ESTADO = {
     logica.CUMPLE: ("Cumple", "tag tag-neutro", "check-on"),
@@ -98,7 +106,7 @@ def api_carpeta():
 
 @app.get("/pliego.pdf")
 def pliego_pdf():
-    return FileResponse(datos.FIXTURES / datos.extraccion()["proceso"]["pdf"], media_type="application/pdf")
+    return FileResponse(datos.ruta_pdf(), media_type="application/pdf")
 
 
 # ------------------------------------------------------------------ HTML

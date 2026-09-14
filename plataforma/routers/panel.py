@@ -32,6 +32,8 @@ def panel(request: Request, usuario: dict = Depends(sesiones.requiere_sesion)):
                   + mensajes + f'<div class="card"><ul style="list-style:none;padding:0;margin:0;font-size:15px">{lista}</ul></div>')
         return V.privada("Panel", cuerpo, "/panel", usuario, empresa, sesiones.token_csrf(request))
     est = fuente.estado()
+    e = contexto.get()
+    activos = set(enfoques.ACTIVOS) | (set(enfoques.CON_PLIEGO) if (e and e.pliego) else set())
     from pliego.filtro import datos as filtro_datos
     n_abiertos = len(filtro_datos.procesos())
     deptos = ", ".join(d.title() for d in empresa["departamentos"])
@@ -41,8 +43,9 @@ def panel(request: Request, usuario: dict = Depends(sesiones.requiere_sesion)):
               f'<p class="mute" style="font-size:14px;margin-top:6px">Cada tarjeta es un enfoque; todos corren sobre los procesos y contratos de sus departamentos.</p></div>'
               f'<span class="badge"><span class="dot"></span>{n_abiertos} procesos abiertos ahora</span></div>'
               + mensajes
-              + f'<div class="pn-grid">{P.tarjetas("/app/", set(enfoques.ACTIVOS))}'
+              + f'<div class="pn-grid">{P.tarjetas("/app/", activos)}'
                 f'<div class="pn-nota"><div class="kicker">Sus datos</div><p style="margin:0">{V.h(deptos)}: procesos abiertos y contratos de construcción del SECOP II, '
-                f'refrescados a diario. <a href="/empresa/datos">Ver estado</a> · <a href="/empresa/perfil/1">Editar perfil</a></p></div></div>'
+                f'refrescados a diario. <a href="/empresa/datos">Ver estado</a> · <a href="/empresa/perfil/1">Editar perfil</a> · '
+                f'<a href="/pliegos">{"Pliego: " + V.h(e.pliego["nombre"]) if (e and e.pliego) else "Subir un pliego"}</a></p></div></div>'
               + '<p class="foot-note">Datos públicos del SECOP II vía Croma. Las probabilidades y recomendaciones son estimaciones; no garantizan un resultado.</p>')
     return V.privada("Panel", cuerpo, "/panel", usuario, empresa, sesiones.token_csrf(request), extra_head=P.CSS)
