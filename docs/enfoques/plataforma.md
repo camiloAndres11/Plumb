@@ -25,6 +25,22 @@ Con Docker completo: `docker compose up` levanta `db`, `api` (:8000, Plomada) y
 `/health` responde `{"ok": true}` cuando Postgres tiene el esquema; con `ok: false`
 dice qué falta (variable o migración).
 
+Sin `SMTP_URL`, los correos (verificación, reset, invitación) **no salen**: el enlace
+se imprime en el log de uvicorn con nivel WARNING. Es el modo de desarrollo.
+
+## Cuentas (fase 1)
+
+- La cuenta es la empresa (NIT con dígito de verificación DIAN validado). Quien se
+  registra es `admin`; invita por correo a `admin` o `miembro`. Un correo es una sola
+  cuenta en toda la plataforma.
+- Contraseñas con argon2id; sesión en servidor (`pliego.sesiones`) con la cookie
+  `pliego_sesion` (solo el id, firmado); expira a los 30 días sin uso; CSRF por
+  sesión en todo POST; rate limit por IP y por correo en login, registro, reset e
+  invitaciones (`pliego.intentos`).
+- Registro, "olvidé mi contraseña" y reenvío responden igual exista o no el correo.
+- Cambiar la contraseña (o restablecerla) cierra las demás sesiones.
+- `/terminos` y `/privacidad` son borradores marcados `<!-- REVISAR LEGAL -->`.
+
 ## Variables de entorno
 
 | Variable | Qué hace |
@@ -57,7 +73,7 @@ plataforma/
 | Fase | Entrega | Estado |
 |---|---|---|
 | 0 | esqueleto, config, Postgres, migraciones, landing, Dockerfile, compose | hecha |
-| 1 | cuentas: registro, verificación, login, reset, equipo e invitaciones, CSRF, rate limit | pendiente |
+| 1 | cuentas: registro, verificación, login, reset, equipo e invitaciones, CSRF, rate limit | hecha |
 | 2 | perfil de la empresa (wizard) y contexto de empresa para los enfoques | pendiente |
 | 3 | datos de Croma por departamento en un warehouse DuckDB en disco, trabajos en segundo plano | pendiente |
 | 4 | filtro, radar y simulador montados bajo `/app/*` con sesión; panel con cifras de la empresa | pendiente |
