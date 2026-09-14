@@ -69,20 +69,20 @@ plataforma/
   config.py       extiende pliego/comun/config.py (pydantic-settings) y registra la instancia única
   db.py           el pool de pliego/comun/pg.py con el DSN y los mensajes de la plataforma
   migrar.py       aplica sql/*.sql una vez cada uno (tabla pliego.migraciones)
-  seguridad.py    argon2id, firmas, rate limit (pliego.intentos), NIT con DV, email
-  sesiones.py     cookie -> request.state.usuario/.empresa; contexto de empresa; guardias; CSRF
+  seguridad.py    argon2id, firmas, huella (SHA-256 de tokens y sesiones en la base), rate limit deslizante (pliego.intentos), NIT con DV, email
+  sesiones.py     cookie -> request.state.usuario/.empresa; contexto de empresa; guardias; CSRF; reautenticar (contraseña para roles, quitar, borrar)
   cuentas.py      registro, verificación, login, reset, invitaciones, roles
   correo.py       SMTP por URL o consola
   esquemas.py     PerfilEmpresa (misma forma que perfil_constructora.json), pasos del wizard
   catalogos.py    departamentos y UNSPSC de construcción
-  trabajos.py     cola en hilo: descargas de Croma por departamento, refresco diario, extracción de pliegos
+  trabajos.py     dos colas con un hilo cada una (descargas de Croma por departamento; extracción de pliegos) y el refresco diario
   enfoques.py     monta pliego/*/app.py bajo /app/* con app.mount + guardia Protegido (que ademas pone la sidebar de la plataforma en request.state.hub)
   pliegos.py      guardar PDF, extraer, elegir; extraccion.py: Claude + poppler; carpeta.py: documentos de la empresa
   vistas.py       publica()/privada() sobre las plantillas de templates/, sidebar y hub()
   templates/      Jinja2 con autoescape: publica.html, privada.html y una por pantalla
   static/         landing, plataforma.css (formularios, tablas) y plataforma.js
   routers/        publico, panel, empresa (equipo, datos, documentos), perfil, cuenta, pliegos, admin: solo formularios y redirecciones
-  sql/            001_esquema.sql, 002_pliegos.sql
+  sql/            001_esquema.sql, 002_pliegos.sql, 003_tokens_hash.sql
   tests/          seguridad y esquemas (puros); flujo, datos y pliegos (Postgres real, warehouse temporal, sin red)
 pliego/comun/
   contexto.py     la empresa (y su pliego) en un ContextVar durante cada petición
@@ -97,8 +97,9 @@ pliego/comun/
 - **Cuentas**: la cuenta es la empresa (NIT). Quien se registra es `admin`; invita
   `admin` o `miembro`. Un correo es una sola cuenta. argon2id; sesión en servidor con
   cookie firmada (solo el id), 30 días sin uso; CSRF por sesión en todo POST; rate
-  limit por IP y correo. Registro, "olvidé" y reenvío responden igual exista o no el
-  correo. Cambiar/restablecer la contraseña cierra las demás sesiones. `/terminos` y
+  limit deslizante por IP y correo. En la base solo va el SHA-256 de cada sesión y
+  token (`seguridad.huella`); el valor en claro viaja en la cookie o el enlace.
+  Registro, "olvidé" y reenvío responden igual exista o no el correo. Cambiar/restablecer la contraseña cierra las demás sesiones. `/terminos` y
   `/privacidad` son borradores marcados `<!-- REVISAR LEGAL -->`.
 - **Perfil**: `pliego.empresas.perfil` (JSONB) con exactamente la forma de
   `pliego/filtro/fixtures/perfil_constructora.json`, validada por `esquemas.py`.
@@ -117,8 +118,9 @@ pliego/comun/
   medias. `pliego/comun/cache.py` cachea por ámbito y versión del warehouse.
 - **Enfoques**: `enfoques.py` monta las cinco apps bajo `/app/<enfoque>` con
   `app.mount` detrás de `Protegido` (sesión, verificado, perfil completo, datos;
-  checklist y generador exigen además un pliego). Las plantillas arman las URLs con
-  el `root_path`, así que no hay que reescribir HTML; `Protegido` deja en
+  checklist y generador exigen además un pliego). Cambiar un rol, quitar a alguien o
+  borrar un pliego piden además la contraseña actual (`sesiones.reautenticar`). Las
+  plantillas arman las URLs con el `root_path`, así que no hay que reescribir HTML; `Protegido` deja en
   `request.state.hub` la sidebar de la plataforma y `base.html` la pinta.
 - **Pliegos**: `extraccion.py` hace **una llamada a `claude-opus-5`** con el PDF y una
   tool obligatoria cuyo `input_schema` es el contrato; convierte a las formas de
@@ -143,8 +145,9 @@ antes de arrancar. `BASE_URL` debe ser el host real del servicio.
 - Croma tarda 1,5–30 s por página; la primera descarga de un departamento son minutos
   y ~50–100 créditos. `/catalog` anuncia "100 requests / 24h" que hoy no aplica; si
   aparece, limitaría el arranque en frío.
-- Un solo worker de uvicorn. Para escalar: cola y candado del warehouse a Postgres
-  (`SELECT … FOR UPDATE SKIP LOCKED`) y un proceso aparte para los trabajos.
+- Un solo worker de uvicorn, con dos hilos de trabajos (descargas y extracciones).
+  Para escalar: cola y candado del warehouse a Postgres (`SELECT … FOR UPDATE SKIP
+  LOCKED`) y un proceso aparte para los trabajos.
 - La extracción con Claude está probada con un cliente simulado (la extracción manual
   del fixture); la calidad y el costo reales se miden con `ANTHROPIC_API_KEY` subiendo
   `pliego_SI-LP-004-2021.pdf` y comparando con `requisitos_SI-LP-004-2021.json`.

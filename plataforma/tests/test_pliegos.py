@@ -184,7 +184,8 @@ def test_subir_extraer_y_usar_en_checklist_y_generador(tmp_path, monkeypatch):
         emp = db.uno("SELECT perfil FROM pliego.empresas WHERE nit = %s", [nit])
         assert emp["perfil"]["documentos"]["carta_presentacion"]["firmada"] and emp["perfil"]["representante_legal"]["nombre"] == "Ana Ruiz"
         # borrar
-        r = c.post(f"/pliegos/{fila['id']}/borrar", data={"csrf": csrf})
+        assert c.post(f"/pliegos/{fila['id']}/borrar", data={"csrf": csrf}).status_code == 403   # pide la contrasena
+        r = c.post(f"/pliegos/{fila['id']}/borrar", data={"csrf": csrf, "clave": "una-clave-larga-1"})
         assert "ok=" in r.headers["location"] and not (tmp_path / fila["ruta_pdf"]).exists()
         db.ejecutar("DELETE FROM pliego.empresas WHERE nit = %s", [nit])
     shutil.rmtree(tmp_path / "pliegos", ignore_errors=True)

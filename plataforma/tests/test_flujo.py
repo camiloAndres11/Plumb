@@ -136,9 +136,12 @@ def test_registro_verificacion_login_equipo_y_reset(cliente):
     csrf = _csrf(html)
     uid_admin = db.uno("SELECT id FROM pliego.usuarios WHERE email = %s", [admin])["id"]
     uid_miembro = db.uno("SELECT id FROM pliego.usuarios WHERE email = %s", [miembro])["id"]
-    r = cliente.post("/empresa/equipo/rol", data={"usuario_id": uid_admin, "rol": "miembro", "csrf": csrf})
+    # sin la contrasena actual no se cambia nada (reautenticacion)
+    assert cliente.post("/empresa/equipo/rol", data={"usuario_id": uid_miembro, "rol": "admin", "csrf": csrf}).status_code == 403
+    assert cliente.post("/empresa/equipo/rol", data={"usuario_id": uid_miembro, "rol": "admin", "csrf": csrf, "clave": "mal"}).status_code == 403
+    r = cliente.post("/empresa/equipo/rol", data={"usuario_id": uid_admin, "rol": "miembro", "csrf": csrf, "clave": "una-clave-larga-1"})
     assert "error=" in r.headers["location"]
-    r = cliente.post("/empresa/equipo/rol", data={"usuario_id": uid_miembro, "rol": "admin", "csrf": csrf})
+    r = cliente.post("/empresa/equipo/rol", data={"usuario_id": uid_miembro, "rol": "admin", "csrf": csrf, "clave": "una-clave-larga-1"})
     assert "ok=" in r.headers["location"]
 
     # cuenta: cambiar contrasena cierra las otras sesiones
@@ -269,4 +272,41 @@ def test_admin_solo_para_plataforma_admins(cliente):
         assert set(cliente.get("/health").json()) == {"ok", "version"}  # /health ya no cuenta nada mas
     finally:
         C.config.plataforma_admins = original
+    db.ejecutar("DELETE FROM pliego.empresas WHERE nit = %s", [nit])
+
+
+def test_el_rate_limit_desliza_entre_ventanas(cliente):
+    from datetime import UTC, datetime, timedelta
+
+    from plataforma import db, seguridad
+    db.ejecutar("DELETE FROM pliego.intentos WHERE clave = 'prueba:desliza'")
+    # ventana de 100 s alineada al reloj: t0 al principio, t1 al final, t2 justo despues
+    base = datetime.now(UTC)
+    t0 = base - timedelta(seconds=base.timestamp() % 100)
+    t1, t2 = t0 + timedelta(seconds=99), t0 + timedelta(seconds=101)
+    assert all(seguridad.permitir("prueba:desliza", 5, 100, ahora=t1) for _ in range(5))
+    assert not seguridad.permitir("prueba:desliza", 5, 100, ahora=t1)
+    # con ventana fija aqui habria 5 intentos nuevos; deslizando, lo de la anterior sigue pesando
+    assert not seguridad.permitir("prueba:desliza", 5, 100, ahora=t2)
+    # a media ventana pesa la mitad: caben unos pocos
+    assert seguridad.permitir("prueba:desliza", 5, 100, ahora=t0 + timedelta(seconds=160))
+    db.ejecutar("DELETE FROM pliego.intentos WHERE clave = 'prueba:desliza'")
+
+
+def test_en_la_base_no_hay_tokens_ni_sesiones_en_claro(cliente):
+    from plataforma import correo, db, seguridad
+    nit_con_dv, nit = _nit()
+    email = f"hash-{uuid.uuid4().hex[:6]}@ejemplo.test"
+    cliente.cookies.clear()
+    cliente.post("/registro", data={"empresa": "Hash Prueba", "nit": nit_con_dv, "nombre": "Ana", "email": email,
+                                    "clave": "una-clave-larga-1", "acepta": "1"})
+    enlace = _correo_enlace(email, "/verificar")
+    token = enlace.rsplit("/", 1)[1]
+    assert db.uno("SELECT 1 FROM pliego.tokens WHERE id = %s", [token]) is None
+    assert db.uno("SELECT 1 FROM pliego.tokens WHERE id = %s", [seguridad.huella(token)])
+    cliente.get(enlace)
+    sid = seguridad.leer_firma(cliente.cookies.get("pliego_sesion"), 10 ** 9)
+    assert db.uno("SELECT 1 FROM pliego.sesiones WHERE id = %s", [sid]) is None
+    assert db.uno("SELECT 1 FROM pliego.sesiones WHERE id = %s", [seguridad.huella(sid)])
+    correo.enviados.clear()
     db.ejecutar("DELETE FROM pliego.empresas WHERE nit = %s", [nit])

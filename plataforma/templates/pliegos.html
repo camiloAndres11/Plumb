@@ -13,7 +13,7 @@
 <td style="white-space:nowrap">
 {% if p.estado == "listo" %}<form method="post" action="/pliegos/{{ p.id }}/usar" style="display:inline">{{ csrf(csrf_token) }}<button class="btn{% if not actual %} hot{% endif %}" type="submit">{{ "En uso" if actual else "Usar" }}</button></form> <a class="btn" href="/app/checklist/">Checklist</a> <a class="btn" href="/app/generador/">Propuesta</a> {% endif %}
 {% if p.estado == "error" and usuario.rol == "admin" %}<form method="post" action="/pliegos/{{ p.id }}/reintentar" style="display:inline">{{ csrf(csrf_token) }}<button class="btn" type="submit">Reintentar</button></form> {% endif %}
-{% if usuario.rol == "admin" %}<form method="post" action="/pliegos/{{ p.id }}/borrar" style="display:inline" data-confirmar="¿Borrar este pliego?">{{ csrf(csrf_token) }}<button class="btn peligro" type="submit">Borrar</button></form>{% endif %}
+{% if usuario.rol == "admin" %}<form method="post" action="/pliegos/{{ p.id }}/borrar" style="display:inline" data-confirmar="¿Borrar este pliego?" data-clave>{{ csrf(csrf_token) }}<input type="hidden" name="clave"><button class="btn peligro" type="submit">Borrar</button></form>{% endif %}
 </td></tr>
 {% endfor %}
 </table></div>

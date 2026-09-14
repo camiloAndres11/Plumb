@@ -117,3 +117,74 @@ def test_solo_config_lee_el_entorno():
             if re.search(r"os\.(environ|getenv)\b", f.read_text(encoding="utf-8")):
                 culpables.append(str(f.relative_to(raiz)))
     assert culpables == [], culpables
+
+
+def test_los_tokens_y_sesiones_van_hasheados():
+    assert S.huella("abc") == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    assert S.huella("abc") != "abc" and len(S.huella(S.nuevo_token())) == 64
+
+
+def test_protegido_redirige_segun_lo_que_falta():
+    """El guardia ASGI de /app/*: sin sesion -> login; sin verificar ->
+    /verificar; sin perfil -> wizard; sin datos -> /empresa/datos; sin pliego
+    (checklist, generador) -> /pliegos; con todo, pasa y deja el hub."""
+    import asyncio
+
+    from plataforma import enfoques as E
+    from pliego.comun import contexto
+
+    async def app_final(scope, receive, send):
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await send({"type": "http.response.body", "body": b"ok"})
+
+    def correr(estado, requiere_pliego=False, datos=True, pliego=None):
+        enviados = []
+
+        async def send(m):
+            enviados.append(m)
+
+        async def receive():
+            return {"type": "http.request"}
+
+        scope = {"type": "http", "root_path": "/app/filtro", "path": "/", "state": dict(estado)}
+        token = contexto.set(1, {}, ["SANTANDER"], pliego=pliego) if estado.get("empresa") else None
+        try:
+            with pytest.MonkeyPatch.context() as mp:
+                mp.setattr(E, "datos_listos", lambda ambito: datos)
+                asyncio.run(E.Protegido(app_final, requiere_pliego)(scope, receive, send))
+        finally:
+            if token is not None:
+                contexto.reset(token)
+        inicio = enviados[0]
+        loc = dict(inicio.get("headers", [])).get(b"location", b"").decode()
+        return inicio["status"], loc, scope["state"].get("hub")
+
+    verificado = {"id": 1, "email": "a@b.co", "email_verificado": True}
+    empresa = {"id": 1, "perfil_completo": True}
+    assert correr({})[:2] == (303, "/login?siguiente=%2Fapp%2Ffiltro%2F")
+    assert correr({"usuario": {"id": 1, "email_verificado": None}})[:2] == (303, "/verificar")
+    assert correr({"usuario": verificado, "empresa": {"id": 1, "perfil_completo": False}})[1].startswith("/empresa/perfil/1?error=")
+    assert correr({"usuario": verificado, "empresa": empresa}, datos=False)[1].startswith("/empresa/datos?error=")
+    assert correr({"usuario": verificado, "empresa": empresa}, requiere_pliego=True)[1].startswith("/pliegos?error=")
+    estado, loc, hub = correr({"usuario": verificado, "empresa": empresa, "sesion": {"csrf": "t"}})
+    assert estado == 200 and loc == "" and hub and hub["items"] and "Salir" in str(hub["pie"])
+    assert correr({"usuario": verificado, "empresa": empresa}, requiere_pliego=True, pliego={"id": 9})[0] == 200
+
+
+def test_la_cola_no_repite_trabajos_y_separa_descargas_de_pliegos(monkeypatch):
+    from plataforma import trabajos as T
+    monkeypatch.setattr(T, "_en_cola", set())
+    import queue
+    monkeypatch.setattr(T, "_colas", {"departamento": queue.Queue(), "pliego": queue.Queue()})
+    assert T.encolar("SANTANDER") and not T.encolar("SANTANDER")
+    assert T.encolar_pliego(7) and not T.encolar_pliego("7")
+    assert T.en_cola() == ["SANTANDER", "pliego:7"]
+    assert T._colas["departamento"].qsize() == 1 and T._colas["pliego"].qsize() == 1
+    # retomar_pendientes y refrescar_todo encolan lo que la base diga, una vez
+    monkeypatch.setattr(T.croma, "disponible", lambda: True)
+    monkeypatch.setattr(T.extraccion, "disponible", lambda: True)
+    monkeypatch.setattr(T.db, "todos", lambda sql, params=None: [{"departamento": "BOYACA"}, {"departamento": "SANTANDER"}])
+    monkeypatch.setattr(T.pliegos, "pendientes", lambda: [7, 8])
+    assert T.retomar_pendientes() == 2        # BOYACA y el pliego 8; SANTANDER y 7 ya estaban
+    assert T.refrescar_todo() == 0
+    assert T.en_cola() == ["BOYACA", "SANTANDER", "pliego:7", "pliego:8"]

@@ -8,8 +8,8 @@
 <tr><td>{{ u.nombre }}{% if u.id == usuario.id %} (usted){% endif %}</td><td>{{ u.email }}</td><td>{{ u.rol }}</td><td>{{ "sí" if u.email_verificado else "pendiente" }}</td>
 <td>{{ u.ultimo_acceso.strftime("%Y-%m-%d") if u.ultimo_acceso else "—" }}</td><td>
 {% if admin and u.id != usuario.id %}{% set otro = "miembro" if u.rol == "admin" else "admin" %}
-<form method="post" action="/empresa/equipo/rol" style="display:inline">{{ csrf(csrf_token) }}<input type="hidden" name="usuario_id" value="{{ u.id }}"><input type="hidden" name="rol" value="{{ otro }}"><button class="btn" type="submit">Hacer {{ otro }}</button></form>
-<form method="post" action="/empresa/equipo/quitar" style="display:inline" data-confirmar="¿Quitar a {{ u.nombre }} de la empresa?">{{ csrf(csrf_token) }}<input type="hidden" name="usuario_id" value="{{ u.id }}"><button class="btn peligro" type="submit">Quitar</button></form>
+<form method="post" action="/empresa/equipo/rol" style="display:inline" data-clave>{{ csrf(csrf_token) }}<input type="hidden" name="usuario_id" value="{{ u.id }}"><input type="hidden" name="rol" value="{{ otro }}"><input type="hidden" name="clave"><button class="btn" type="submit">Hacer {{ otro }}</button></form>
+<form method="post" action="/empresa/equipo/quitar" style="display:inline" data-confirmar="¿Quitar a {{ u.nombre }} de la empresa?" data-clave>{{ csrf(csrf_token) }}<input type="hidden" name="usuario_id" value="{{ u.id }}"><input type="hidden" name="clave"><button class="btn peligro" type="submit">Quitar</button></form>
 {% endif %}
 </td></tr>
 {% endfor %}

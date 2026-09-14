@@ -8,7 +8,8 @@ Decisiones que no son obvias:
     para no revelar que cuentas existen.
   - Los tokens son de un solo uso y con vencimiento: verificar 24 h,
     reset 1 h, invitacion 7 d. Consumir uno marca `usado`; un reset ademas
-    cierra las demas sesiones del usuario.
+    cierra las demas sesiones del usuario. En la base va su SHA-256
+    (seguridad.huella); el valor en claro solo viaja en el enlace.
 """
 from __future__ import annotations
 
@@ -45,18 +46,23 @@ def invitaciones_pendientes(empresa_id: int) -> list[dict]:
 
 # ---------------------------------------------------------------- tokens
 def _emitir(tipo: str, cur, **campos) -> str:
+    """Devuelve el token en claro (va en el enlace); en la base queda su huella."""
     tid = seguridad.nuevo_token()
     cur.execute("INSERT INTO pliego.tokens (id, tipo, usuario_id, empresa_id, email, rol, expira) "
                 "VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                [tid, tipo, campos.get("usuario_id"), campos.get("empresa_id"), campos.get("email"),
+                [seguridad.huella(tid), tipo, campos.get("usuario_id"), campos.get("empresa_id"), campos.get("email"),
                  campos.get("rol"), datetime.now(UTC) + VENCE[tipo]])
     return tid
 
 
 def leer_token(tid: str, tipo: str) -> dict | None:
-    """El token si existe, es de ese tipo, no se uso y no vencio."""
+    """El token (por su valor en claro) si existe, es de ese tipo, no se uso y no vencio."""
     return db.uno("SELECT * FROM pliego.tokens WHERE id = %s AND tipo = %s AND usado IS NULL AND expira > now()",
-                  [tid, tipo])
+                  [seguridad.huella(tid), tipo])
+
+
+def _consumir(cur, tid: str) -> None:
+    cur.execute("UPDATE pliego.tokens SET usado = now() WHERE id = %s", [seguridad.huella(tid)])
 
 
 def enlace(ruta: str, tid: str) -> str:
@@ -97,7 +103,7 @@ def verificar(tid: str) -> dict | None:
     if not t:
         return None
     with db.transaccion() as cur:
-        cur.execute("UPDATE pliego.tokens SET usado = now() WHERE id = %s", [tid])
+        _consumir(cur, tid)
         cur.execute("UPDATE pliego.usuarios SET email_verificado = coalesce(email_verificado, now()) WHERE id = %s",
                     [t["usuario_id"]])
     return usuario_por_id(t["usuario_id"])
@@ -135,16 +141,20 @@ def restablecer(tid: str, clave: str) -> dict | None:
     if not t:
         return None
     with db.transaccion() as cur:
-        cur.execute("UPDATE pliego.tokens SET usado = now() WHERE id = %s", [tid])
+        _consumir(cur, tid)
         cur.execute("UPDATE pliego.usuarios SET hash = %s, email_verificado = coalesce(email_verificado, now()) WHERE id = %s",
                     [seguridad.hashear(clave), t["usuario_id"]])
         cur.execute("DELETE FROM pliego.sesiones WHERE usuario_id = %s", [t["usuario_id"]])
     return usuario_por_id(t["usuario_id"])
 
 
-def cambiar_contrasena(usuario_id: int, actual: str, nueva: str) -> bool:
+def verificar_clave(usuario_id: int, clave: str) -> bool:
     u = usuario_por_id(usuario_id)
-    if not u or not seguridad.verificar(u["hash"], actual):
+    return bool(u and seguridad.verificar(u["hash"], clave))
+
+
+def cambiar_contrasena(usuario_id: int, actual: str, nueva: str) -> bool:
+    if not verificar_clave(usuario_id, actual):
         return False
     db.ejecutar("UPDATE pliego.usuarios SET hash = %s WHERE id = %s", [seguridad.hashear(nueva), usuario_id])
     return True
@@ -176,7 +186,7 @@ def aceptar_invitacion(tid: str, nombre: str, clave: str) -> dict | None:
     if not t or usuario_por_email(t["email"]):
         return None
     with db.transaccion() as cur:
-        cur.execute("UPDATE pliego.tokens SET usado = now() WHERE id = %s", [tid])
+        _consumir(cur, tid)
         cur.execute("INSERT INTO pliego.usuarios (empresa_id, email, nombre, hash, rol, email_verificado) "
                     "VALUES (%s, %s, %s, %s, %s, now()) RETURNING id",
                     [t["empresa_id"], t["email"], nombre, seguridad.hashear(clave), t["rol"]])
@@ -184,9 +194,10 @@ def aceptar_invitacion(tid: str, nombre: str, clave: str) -> dict | None:
     return usuario_por_id(uid)
 
 
-def revocar_invitacion(empresa_id: int, tid: str) -> None:
+def revocar_invitacion(empresa_id: int, id_en_base: str) -> None:
+    """`id_en_base` es lo que lista invitaciones_pendientes (la huella), no el token."""
     db.ejecutar("UPDATE pliego.tokens SET usado = now() WHERE id = %s AND empresa_id = %s AND tipo = 'invitacion'",
-                [tid, empresa_id])
+                [id_en_base, empresa_id])
 
 
 def cambiar_rol(empresa_id: int, usuario_id: int, rol: str) -> str | None:
