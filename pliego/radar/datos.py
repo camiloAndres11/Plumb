@@ -5,9 +5,8 @@ Las filas vienen de pliego/comun/fuente: fixtures o Croma, mismo esquema.
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from functools import lru_cache
 
-from pliego.comun import fuente
+from pliego.comun import cache, fuente
 from pliego.radar import logica
 
 
@@ -21,17 +20,17 @@ def HOY():
     return fuente.hoy()
 
 
-@lru_cache(maxsize=1)
+@cache.por_ambito()
 def contratos() -> list[dict]:
     return _filas("contratos")
 
 
-@lru_cache(maxsize=1)
+@cache.por_ambito()
 def abiertos() -> list[dict]:
     return _filas("abiertos")
 
 
-@lru_cache(maxsize=1)
+@cache.por_ambito()
 def _por_entidad() -> dict[str, list[dict]]:
     d = defaultdict(list)
     for c in contratos():
@@ -39,7 +38,7 @@ def _por_entidad() -> dict[str, list[dict]]:
     return d
 
 
-@lru_cache(maxsize=1)
+@cache.por_ambito()
 def _por_proveedor() -> dict[str, list[dict]]:
     d = defaultdict(list)
     for c in contratos():
@@ -47,12 +46,12 @@ def _por_proveedor() -> dict[str, list[dict]]:
     return d
 
 
-@lru_cache(maxsize=512)
+@cache.por_ambito(maxsize=512)
 def entidad(nit: str, tipo: str | None = "OBRA") -> dict | None:
     return logica.perfil_entidad(_por_entidad().get(nit, []), nit, HOY(), tipo)
 
 
-@lru_cache(maxsize=512)
+@cache.por_ambito(maxsize=512)
 def competidor(doc: str) -> dict | None:
     return logica.perfil_competidor(_por_proveedor().get(doc, []), doc, HOY())
 
@@ -61,7 +60,7 @@ def proceso(id_proceso: str) -> dict | None:
     return next((a for a in abiertos() if a["id_del_proceso"] == id_proceso), None)
 
 
-@lru_cache(maxsize=256)
+@cache.por_ambito(maxsize=256)
 def competidores_de(id_proceso: str, n: int = 10) -> list[dict]:
     p = proceso(id_proceso)
     if p is None:
@@ -81,7 +80,7 @@ class _PerfilesPorDemanda:
         return competidor(doc)
 
 
-@lru_cache(maxsize=1)
+@cache.por_ambito()
 def entidades_mas_activas(n: int = 40) -> list[dict]:
     cnt = Counter()
     nombres = {}
@@ -92,7 +91,7 @@ def entidades_mas_activas(n: int = 40) -> list[dict]:
     return [{"nit": k, "entidad": nombres[k][0], "departamento": nombres[k][1], "n": v} for k, v in cnt.most_common(n)]
 
 
-@lru_cache(maxsize=1)
+@cache.por_ambito()
 def competidores_mas_activos(n: int = 40) -> list[dict]:
     cnt = Counter()
     nombres = {}

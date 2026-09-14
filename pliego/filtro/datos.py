@@ -11,7 +11,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
-from pliego.comun import contexto, fuente
+from pliego.comun import cache, contexto, fuente
 from pliego.filtro import logica
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -32,22 +32,22 @@ def _perfil_fixture() -> dict:
     return json.loads((FIXTURES / "perfil_constructora.json").read_text(encoding="utf-8"))
 
 
-@lru_cache(maxsize=1)
+@cache.por_ambito()
 def procesos() -> list[dict]:
     return _filas("procesos_abiertos")
 
 
-@lru_cache(maxsize=1)
+@cache.por_ambito()
 def historial_entidades() -> dict[str, dict]:
     return {f["nit_entidad"]: f for f in _filas("entidades_historial")}
 
 
-@lru_cache(maxsize=1)
+@cache.por_ambito()
 def historial_familias() -> dict[tuple[str, str], dict]:
     return {(f["nit_entidad"], f["familia"]): f for f in _filas("entidad_familia")}
 
 
-@lru_cache(maxsize=1)
+@cache.por_ambito()
 def frecuencia_unspsc() -> dict[str, int]:
     return {f["unspsc"]: int(f["n"]) for f in _filas("unspsc_frecuencia")}
 
@@ -64,7 +64,7 @@ def evaluar_proceso(p: dict, perf: dict | None = None) -> logica.Evaluacion:
     )
 
 
-@lru_cache(maxsize=1)
+@cache.por_ambito(por_empresa=True)
 def evaluaciones() -> list[dict]:
     """Todos los procesos abiertos evaluados contra el perfil, ordenados:
     presentarse primero, luego revisar, luego no presentarse; dentro de

@@ -18,17 +18,25 @@ Que hay en cada carpeta:
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from plataforma import db, seguridad, sesiones
+from plataforma import db, seguridad, sesiones, trabajos
 from plataforma import vistas as V
 from plataforma.config import RAIZ, VERSION, config
+from pliego.comun import warehouse
 
 log = logging.getLogger("pliego.plataforma")
+
+# La plataforma SIEMPRE sirve los enfoques desde el warehouse por empresa
+# (pliego/comun/fuente.py modo warehouse), aunque el .env compartido con la
+# demo pida `croma` o nada.
+os.environ["PLIEGO_FUENTE"] = "warehouse"
+os.environ.setdefault("PLATAFORMA_DATOS", config.plataforma_datos)
 
 
 class EstaticosDeDos(StaticFiles):
@@ -43,7 +51,10 @@ class EstaticosDeDos(StaticFiles):
 async def lifespan(app: FastAPI):
     if not config.secret_key:
         log.warning("falta SECRET_KEY: las rutas con sesion responderan 503 (ver .env.example)")
+    trabajos.arrancar()
     yield
+    trabajos.parar()
+    warehouse.cerrar()
     db.cerrar()
 
 
@@ -55,8 +66,14 @@ app.middleware("http")(sesiones.cargar)
 @app.get("/health")
 def health():
     ok, detalle = db.disponible()
-    return JSONResponse({"ok": ok, "version": VERSION, "postgres": detalle,
-                         "secret_key": bool(config.secret_key)}, status_code=200 if ok else 503)
+    try:
+        wh = warehouse.estado()
+        wh_detalle = {"ok": True, "departamentos": len(wh["departamentos"]), "as_of": wh["as_of"], "ruta": str(warehouse.ruta())}
+    except Exception as e:   # sin disco o corrupto: se reporta, no se cae
+        wh_detalle = {"ok": False, "error": str(e)[:200]}
+    return JSONResponse({"ok": ok, "version": VERSION, "postgres": detalle, "warehouse": wh_detalle,
+                         "cola": trabajos.en_cola(), "secret_key": bool(config.secret_key)},
+                        status_code=200 if ok else 503)
 
 
 @app.exception_handler(sesiones.Redirigir)

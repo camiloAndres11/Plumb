@@ -5,9 +5,8 @@ Las filas vienen de pliego/comun/fuente: fixtures o Croma, mismo esquema.
 from __future__ import annotations
 
 import random
-from functools import lru_cache
 
-from pliego.comun import fuente
+from pliego.comun import cache, fuente
 from pliego.simulador import logica
 from pliego.simulador.metodos import VERSIONES, VERSION_DEFECTO
 
@@ -22,12 +21,12 @@ def fecha_snapshot():
     return fuente.hoy()
 
 
-@lru_cache(maxsize=1)
+@cache.por_ambito()
 def historico() -> list[dict]:
     return _filas("historico")
 
 
-@lru_cache(maxsize=1)
+@cache.por_ambito()
 def abiertos() -> list[dict]:
     return _filas("abiertos")
 
@@ -36,7 +35,7 @@ def proceso(id_proceso: str) -> dict | None:
     return next((a for a in abiertos() if a["id_del_proceso"] == id_proceso), None)
 
 
-@lru_cache(maxsize=64)
+@cache.por_ambito(maxsize=64)
 def recomendar_para(id_proceso: str, version: str = VERSION_DEFECTO, n_sim: int = 400) -> dict:
     p = proceso(id_proceso)
     if p is None:
@@ -53,7 +52,7 @@ def recomendar_para(id_proceso: str, version: str = VERSION_DEFECTO, n_sim: int 
     return d
 
 
-@lru_cache(maxsize=4)
+@cache.por_ambito(maxsize=4)
 def backtest(version: str = VERSION_DEFECTO, n_procesos: int = 40, n_sim: int = 120) -> dict:
     return logica.backtest(historico(), VERSIONES[version], n_procesos=n_procesos, n_sim=n_sim,
                            rng=random.Random(11))

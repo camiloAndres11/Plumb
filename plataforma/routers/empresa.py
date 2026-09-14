@@ -6,7 +6,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse
 
-from plataforma import cuentas, db, seguridad, sesiones
+from plataforma import cuentas, db, seguridad, sesiones, trabajos
 from plataforma import vistas as V
 
 router = APIRouter()
@@ -20,17 +20,40 @@ def datos(request: Request, usuario: dict = Depends(sesiones.requiere_sesion)):
         return sesiones.redirigir("/empresa/perfil/1?error=" + quote("Primero diga en qué departamentos licita."))
     estados = {d["departamento"]: d for d in db.todos(
         "SELECT * FROM pliego.descargas_departamento WHERE departamento = ANY(%s)", [empresa["departamentos"]])}
+    en_cola, token, admin = set(trabajos.en_cola()), sesiones.token_csrf(request), usuario["rol"] == "admin"
     filas = ""
     for dep in empresa["departamentos"]:
         e = estados.get(dep) or {"estado": "pendiente", "as_of": None, "paginas": 0, "error": None}
-        filas += (f'<tr><td>{V.h(dep.title())}</td><td><span class="estado {e["estado"]}">{V.h(e["estado"])}</span></td>'
-                  f'<td>{_fecha(e.get("as_of"))}</td><td>{e.get("paginas") or 0}</td><td>{V.h(e.get("error") or "")}</td></tr>')
+        estado = e["estado"] if dep not in en_cola or e["estado"] == "descargando" else "en cola"
+        accion = ""
+        if admin and e["estado"] in ("error", "lista", "pendiente") and dep not in en_cola:
+            accion = (f'<form method="post" action="/empresa/datos/reintentar" style="display:inline">{V.csrf(token)}'
+                      f'<input type="hidden" name="departamento" value="{V.h(dep)}"><button class="btn" type="submit">'
+                      f'{"Reintentar" if e["estado"] == "error" else "Descargar ahora"}</button></form>')
+        filas += (f'<tr><td>{V.h(dep.title())}</td><td><span class="estado {e["estado"]}">{V.h(estado)}</span></td>'
+                  f'<td>{V.h(str(e.get("as_of") or "")[:10] or "—")}</td><td>{e.get("paginas") or 0}</td>'
+                  f'<td style="max-width:320px;font-size:12px;color:#ffb3a3">{V.h((e.get("error") or "")[:160])}</td><td>{accion}</td></tr>')
     listas = sum(1 for d in empresa["departamentos"] if (estados.get(d) or {}).get("estado") == "lista")
     cuerpo = (V.cabecera("Empresa", "Datos", f"{listas} de {len(empresa['departamentos'])} departamentos listos.")
               + V.mensajes(ok=request.query_params.get("ok"), error=request.query_params.get("error"), clase="msg")
-              + f'<div class="card"><table class="tabla"><tr><th>Departamento</th><th>Estado</th><th>Datos al</th><th>Páginas</th><th></th></tr>{filas}</table>'
-                f'<p class="mute" style="font-size:13px;margin-top:12px">La descarga desde Croma empieza sola y se refresca a diario. Los enfoques se abren cuando al menos un departamento esté listo.</p></div>')
-    return V.privada("Datos", cuerpo, "/empresa/datos", usuario, empresa, sesiones.token_csrf(request))
+              + f'<div class="card"><table class="tabla"><tr><th>Departamento</th><th>Estado</th><th>Datos al</th><th>Consultas</th><th></th><th></th></tr>{filas}</table>'
+                f'<p class="mute" style="font-size:13px;margin-top:12px">La descarga desde Croma empieza sola (la primera vez tarda unos minutos por departamento) '
+                f'y se refresca a diario a las 5:00. Los enfoques se abren cuando al menos un departamento esté listo. '
+                f'<a href="/empresa/datos">Actualizar</a></p></div>')
+    return V.privada("Datos", cuerpo, "/empresa/datos", usuario, empresa, token)
+
+
+@router.post("/empresa/datos/reintentar")
+def reintentar(request: Request, usuario: dict = Depends(sesiones.requiere_admin), _: None = Depends(sesiones.csrf),
+               departamento: str = Form(...)):
+    if departamento not in request.state.empresa["departamentos"]:
+        return sesiones.redirigir("/empresa/datos?error=" + quote("Ese departamento no es de su empresa."))
+    if not seguridad.permitir("reintentar:" + departamento, 3, 3600):
+        return sesiones.redirigir("/empresa/datos?error=" + quote("Ya se pidió varias veces en la última hora."))
+    db.ejecutar("UPDATE pliego.descargas_departamento SET estado = 'pendiente', error = NULL WHERE departamento = %s AND estado <> 'descargando'",
+                [departamento])
+    trabajos.encolar(departamento)
+    return sesiones.redirigir("/empresa/datos?ok=" + quote(f"{departamento.title()} en cola."))
 
 
 def _fecha(d) -> str:

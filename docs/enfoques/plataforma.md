@@ -55,6 +55,32 @@ quedan `pendiente` en `pliego.descargas_departamento` (la fase 3 los descarga).
 con sesión; `pliego/filtro/datos.perfil()` devuelve ese perfil si hay contexto y el
 ficticio si no (demo, pruebas). Catálogos en `plataforma/catalogos.py`.
 
+## Datos por empresa (fase 3)
+
+- **Warehouse**: `pliego/comun/warehouse.py`, un DuckDB en disco
+  (`$PLATAFORMA_DATOS/warehouse/pliego.duckdb`) con `base_todo`, `procesos_todo`,
+  `abiertos_todo` (+ `departamento_descarga`, `descargado_en`), agregados
+  `base_ventana` / `hist_unico`, `meta` por departamento y la vista `alertas_todo`
+  con las banderas del filtro calculadas contra `current_date`. Cada petición consulta
+  con vistas temporales `base`/`procesos`/`abiertos`/`alertas` filtradas por los
+  departamentos de la empresa, así que **las SQL de `pliego/*/semilla.py` corren sin
+  cambios** (`fuente.py`, modo `warehouse`). El archivo queda bloqueado por el proceso
+  que lo abre: no se puede inspeccionar con otro Python mientras la plataforma corre
+  (usar `/health` o `/admin`).
+- **Descargas**: `plataforma/trabajos.py`, un hilo con cola. Al guardar departamentos
+  en el perfil se encolan; la primera vez baja todo el histórico desde
+  `CROMA_DESDE_ANIO`, después incremental desde `ultima_ok − 2 días`; los abiertos se
+  reemplazan enteros. Refresco diario a las 05:00 (Colombia) de todo lo `lista`; al
+  arrancar retoma lo pendiente/en error. Una búsqueda fallida deja el departamento en
+  `error` (nada a medias) y se reintenta desde `/empresa/datos`. Sin `CROMA_API_KEY`
+  no hay descargas y se sirve lo que haya. La caché de disco de `fuente._paginas`
+  (`data/cache/croma/`) evita repetir páginas del día.
+- **Caché en memoria**: `pliego/comun/cache.py` reemplaza los `lru_cache` de los
+  `datos.py`: llave por ámbito (departamentos), versión del warehouse y, para lo que
+  depende del perfil, la empresa. Con fixtures se comporta como antes.
+- Estado por departamento en `pliego.descargas_departamento`; `/health` reporta
+  warehouse y cola.
+
 ## Variables de entorno
 
 | Variable | Qué hace |
@@ -89,7 +115,7 @@ plataforma/
 | 0 | esqueleto, config, Postgres, migraciones, landing, Dockerfile, compose | hecha |
 | 1 | cuentas: registro, verificación, login, reset, equipo e invitaciones, CSRF, rate limit | hecha |
 | 2 | perfil de la empresa (wizard) y contexto de empresa para los enfoques | hecha |
-| 3 | datos de Croma por departamento en un warehouse DuckDB en disco, trabajos en segundo plano | pendiente |
+| 3 | datos de Croma por departamento en un warehouse DuckDB en disco, trabajos en segundo plano | hecha |
 | 4 | filtro, radar y simulador montados bajo `/app/*` con sesión; panel con cifras de la empresa | pendiente |
 | 5 | pliegos: subir PDF, extracción con Claude, checklist y generador sobre él | pendiente |
 | 6 | admin, health, Render con disco, documentación, PR a `dev` | pendiente |
