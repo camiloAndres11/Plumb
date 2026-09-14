@@ -26,11 +26,14 @@ origen** y una lista ordenada de lo que falta.
 - `pliego_SI-LP-004-2021.json`: extracción (simulada, a mano) del pliego
   real de Bucaramanga: 23 campos con su página (entidad p. 1, garantía
   p. 59, anticipo p. 64, tabla de experiencia p. 34…), 3 lotes (p. 5) y
-  la lista de formatos exigidos (p. 64). El PDF va como fixture.
-- `perfil_constructora.json`: perfil ficticio de Constructora Andina con
-  todo lo que el cliente carga una vez (RL, cédula, tarjeta profesional,
-  dirección, RUP, estados financieros, contratos en ejecución…). Faltan a
-  propósito el plan de gerencia y el certificado de discapacidad.
+  la lista de formatos exigidos (p. 64). El PDF es el del checklist
+  (`pliego/checklist/fixtures/`), una sola copia.
+- El perfil ficticio de Constructora Andina es el único del repo,
+  `pliego/filtro/fixtures/perfil_constructora.json`: la forma que guarda la
+  plataforma más lo que el cliente declara (RL, cédula, tarjeta profesional,
+  dirección, RUP con contratos, estados financieros, contratos en ejecución
+  en `capacidad_residual_detalle`). Faltan a propósito el plan de gerencia y
+  el certificado de discapacidad.
 
 **Lógica** (`pliego/generador/logica.py`): una función por documento que
 produce un `Documento` con sus `Campo`s. Cada campo tiene `origen`:

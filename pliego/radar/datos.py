@@ -10,10 +10,6 @@ from pliego.comun import cache, fuente
 from pliego.radar import logica
 
 
-def _filas(nombre: str) -> list[dict]:
-    return fuente.filas("radar", nombre)
-
-
 def HOY():
     """Fecha contra la que se mide saturacion y vigencia: la del snapshot
     con fixtures, la de hoy con Croma."""
@@ -22,12 +18,12 @@ def HOY():
 
 @cache.por_ambito()
 def contratos() -> list[dict]:
-    return _filas("contratos")
+    return fuente.filas("radar", "contratos")
 
 
 @cache.por_ambito()
 def abiertos() -> list[dict]:
-    return _filas("abiertos")
+    return fuente.filas("radar", "abiertos")
 
 
 @cache.por_ambito()

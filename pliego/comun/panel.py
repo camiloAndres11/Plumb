@@ -36,8 +36,6 @@ def cifras(activos: set[str] | None = None) -> dict[str, tuple[str, str]]:
     activos = activos if activos is not None else {r for r, *_ in ENFOQUES}
     salida = {
         "filtro": ("—", "sin procesos abiertos"),
-        "checklist": ("3 cosas", "faltan para quedar habilitado en Bucaramanga"),
-        "generador": ("60 %", "de la propuesta lista · falta 1 cosa que la rechaza"),
         "simulador": ("—", "sin procesos de obra abiertos"),
         "radar": ("—", "sin procesos abiertos"),
     }
@@ -59,9 +57,33 @@ def cifras(activos: set[str] | None = None) -> dict[str, tuple[str, str]]:
             p = abiertos[0]
             n = len(radar_datos.competidores_de(p["id_del_proceso"]))
             salida["radar"] = (str(n), f"competidores probables en {corto(p.get('entidad'))}")
-    if "checklist" not in activos:
+    # Checklist y generador: calculados del pliego en contexto (o del fixture
+    # en la demo). Antes eran cifras fijas de Bucaramanga para cualquiera.
+    if "checklist" in activos:
+        from pliego.checklist import datos as checklist_datos
+        try:
+            ck = checklist_datos.checklist(1)
+            c = ck["resumen"]["conteo"]
+            faltan = c["no_cumple"] + c["falta_documento"]
+            ciudad = corto(((ck["proceso"].get("entidad") or "").replace("MUNICIPIO DE ", "").replace("ALCALDIA DE ", "")) or "el pliego")
+            salida["checklist"] = ((f"{faltan} cosa{'s' if faltan != 1 else ''}", f"falta{'n' if faltan != 1 else ''} para quedar habilitado en {ciudad}")
+                                   if faltan else ("Habilitado", f"{c['revisar']} punto{'s' if c['revisar'] != 1 else ''} por revisar en {ciudad}"))
+        except Exception:   # sin pliego legible: la tarjeta no tumba el panel
+            salida["checklist"] = ("—", "sin pliego legible")
+    else:
         salida["checklist"] = ("Próximamente", "suba un pliego para revisar sus requisitos")
-    if "generador" not in activos:
+    if "generador" in activos:
+        from pliego.generador import datos as generador_datos
+        from pliego.generador import logica as LG
+        try:
+            r = generador_datos.paquete(1)["resumen"]
+            aplican = r["total"] - r["conteo"][LG.NO_APLICA]
+            pct = round(100 * r["conteo"][LG.LISTO] / aplican) if aplican else 0
+            nc = r["faltantes_criticos"]
+            salida["generador"] = (f"{pct} %", "de la propuesta lista · " + ("nada la rechaza" if nc == 0 else f"falta{'n' if nc != 1 else ''} {nc} cosa{'s' if nc != 1 else ''} que la rechaza{'n' if nc != 1 else ''}"))
+        except Exception:
+            salida["generador"] = ("—", "sin pliego legible")
+    else:
         salida["generador"] = ("Próximamente", "suba un pliego para armar la propuesta")
     return salida
 

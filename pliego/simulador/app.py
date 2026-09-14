@@ -50,8 +50,6 @@ def _pagina(request: Request, plantilla: str, titulo: str, actual: str, **ctx):
     return W.render(templates, request, plantilla, titulo=titulo, items=ITEMS, actual=actual, MODALIDAD_CORTA=MODALIDAD_CORTA, **ctx)
 
 
-_pct = W.pct
-_f1 = W.num1
 
 
 def grafico_svg(malla: list[dict], rango: list[float], ratio: float, metodos: list[dict]) -> str:

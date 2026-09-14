@@ -50,49 +50,21 @@ def _extra(esquema: pa.Schema) -> pa.Schema:
 ESQUEMA_BASE = _extra(F.ESQUEMA_BASE)
 ESQUEMA_PROCESO = _extra(F.ESQUEMA_PROCESO)
 
-# Como fuente.SQL_ALERTAS, pero como VISTA sobre abiertos_todo y con las
-# fechas relativas a current_date.
-SQL_VISTA_ALERTAS = """
+# Las mismas banderas que fuente.SQL_ALERTAS (una sola definicion,
+# fuente.sql_banderas), como VISTA sobre abiertos_todo y con los dias
+# relativos a current_date para que no envejezcan entre descargas.
+_DV, _DR = "date_diff('day', a.fecha_publicacion, a.fecha_cierre)", "date_diff('day', current_date, a.fecha_cierre)"
+SQL_VISTA_ALERTAS = f"""
 CREATE OR REPLACE VIEW alertas_todo AS
 SELECT a.* EXCLUDE (dias_restantes, dias_ventana),
-       date_diff('day', a.fecha_publicacion, a.fecha_cierre) AS dias_ventana,
-       date_diff('day', current_date, a.fecha_cierre)         AS dias_restantes,
-       CASE WHEN a.fecha_cierre IS NULL THEN 'sin_fecha_cierre'
-            WHEN date_diff('day', current_date, a.fecha_cierre) < 0 THEN 'cierre_vencido'
-            ELSE 'accionable' END                                            AS universo,
-       (a.fecha_publicacion IS NOT NULL AND a.fecha_cierre IS NOT NULL AND v.p10 IS NOT NULL
-          AND date_diff('day', a.fecha_publicacion, a.fecha_cierre) <= v.p10) AS f_ventana_corta,
-       CAST(NULL AS BOOLEAN)                                                 AS f_al_tope_minima,
-       (h.tasa >= 0.80)                                                      AS f_historial_proponente_unico,
-       h.tasa                                                                AS ev_tasa_historica_entidad,
-       h.n_historico                                                         AS ev_n_historico_entidad,
-       (coalesce(a.n_invitados, 0) >= 5 AND coalesce(a.n_manifestaron, 0) = 0
-          AND date_diff('day', current_date, a.fecha_cierre) BETWEEN 0 AND 7) AS f_sin_interes_a_tiempo,
-       CAST(NULL AS BOOLEAN)                                                 AS f_cierre_movido,
-       ( coalesce((a.fecha_publicacion IS NOT NULL AND a.fecha_cierre IS NOT NULL AND v.p10 IS NOT NULL
-                   AND date_diff('day', a.fecha_publicacion, a.fecha_cierre) <= v.p10)::INT, 0)
-       + coalesce((h.tasa >= 0.80)::INT, 0)
-       + coalesce((coalesce(a.n_invitados, 0) >= 5 AND coalesce(a.n_manifestaron, 0) = 0
-                   AND date_diff('day', current_date, a.fecha_cierre) BETWEEN 0 AND 7)::INT, 0) ) AS n_banderas
+       {_DV} AS dias_ventana,
+       {_DR} AS dias_restantes, {F.sql_banderas(_DV, _DR)}
 FROM abiertos_todo a
 LEFT JOIN base_ventana v ON v.modalidad = a.modalidad
 LEFT JOIN hist_unico h ON h.nit_entidad = a.nit_entidad;
 """
 
-SQL_AGREGADOS = """
-CREATE OR REPLACE TABLE base_ventana AS
-SELECT modalidad, quantile_cont(dias_ventana, 0.10) AS p10, count(*) AS n
-FROM procesos_todo WHERE dias_ventana IS NOT NULL AND dias_ventana >= 0
-GROUP BY 1 HAVING count(*) >= 5;
-
-CREATE OR REPLACE TABLE hist_unico AS
-SELECT nit_entidad,
-       avg(CASE WHEN n_oferentes_unicos <= 1 THEN 1 ELSE 0 END) AS tasa,
-       count(*) AS n_historico
-FROM base_todo
-WHERE n_oferentes_unicos IS NOT NULL AND modalidad NOT LIKE 'CONTRATACION DIRECTA%'
-GROUP BY 1 HAVING count(*) >= 5;
-"""
+SQL_AGREGADOS = F.sql_agregados("procesos_todo", "base_todo")
 
 
 def _tipo_sql(t: pa.DataType) -> str:
