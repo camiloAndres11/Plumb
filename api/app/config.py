@@ -55,6 +55,12 @@ class Config(BaseSettings):
     # decenas de conexiones lentas acaparan el proceso entero -- incluida
     # la API de datos, que comparte el mismo servidor. Ademas, sin limite
     # por IP el proxy sirve de relay anonimo para probar keys ajenas.
+    # Saltos de X-Forwarded-For que se descuentan desde la derecha para hallar
+    # la IP real. Por defecto 0: uvicorn ya resuelve la IP con --proxy-headers
+    # y una lista de proxies de red privada (ver el Dockerfile), asi que vale
+    # la del socket y la cabecera se ignora. Solo para despliegues sin esa
+    # capa (p. ej. detras de un proxy con IP publica).
+    proxies_confiables: int = 0
     chat_max_concurrentes: int = 8
     chat_max_por_ip: int = 6      # peticiones por IP por ventana
     chat_ventana_seg: int = 60

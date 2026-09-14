@@ -24,7 +24,7 @@ BADGE = '<span class="ad-badge"><span class="ad-dot"></span>Para constructoras q
 
 
 def _ip(request: Request) -> str:
-    return request.client.host if request.client else "?"
+    return seguridad.ip_cliente(request)
 
 
 def _siguiente(request: Request, valor: str | None) -> str:

@@ -39,6 +39,12 @@ class Config(BaseSettings):
     plataforma_datos: str = str(RAIZ / "data")
     # Sesion: dias de inactividad antes de expirar.
     sesion_dias: int = 30
+    # Saltos de X-Forwarded-For que se descuentan desde la derecha para hallar
+    # la IP real. Por defecto 0: uvicorn ya resuelve la IP con --proxy-headers
+    # y una lista de proxies de red privada (ver el Dockerfile), asi que vale
+    # la del socket y la cabecera se ignora. Solo para despliegues sin esa
+    # capa (p. ej. detras de un proxy con IP publica).
+    proxies_confiables: int = 0
 
     @property
     def dsn(self) -> str:

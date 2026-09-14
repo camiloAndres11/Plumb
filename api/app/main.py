@@ -232,12 +232,17 @@ _chat_golpes: dict[str, deque] = defaultdict(deque)  # ip -> tiempos recientes
 
 
 def _ip_cliente(request: Request) -> str:
-    # Render pone la IP real del visitante de primera en X-Forwarded-For;
-    # sin proxy (desarrollo local) queda la del socket.
-    xff = request.headers.get("x-forwarded-for", "")
-    if xff:
-        return xff.split(",")[0].strip()
-    return request.client.host if request.client else "?"
+    # La IP del socket, que uvicorn ya corrigio con --proxy-headers y la
+    # lista de proxies privados del Dockerfile. Tomar el primer valor de
+    # X-Forwarded-For dejaba que el cliente se inventara la IP y saltara el
+    # techo. config.proxies_confiables es la salida para despliegues sin
+    # esa capa: descuenta N saltos desde la derecha.
+    socket = request.client.host if request.client else "?"
+    n = config.proxies_confiables
+    if n <= 0:
+        return socket
+    saltos = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
+    return saltos[-n] if len(saltos) >= n else socket
 
 
 def _dentro_del_limite(ip: str) -> bool:

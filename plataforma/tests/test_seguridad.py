@@ -43,3 +43,25 @@ def test_firma_exige_secreto(monkeypatch):
     assert S.leer_firma(firmado, 60) == "sesion-1"
     assert S.leer_firma(firmado + "x", 60) is None
     assert S.leer_firma(None, 60) is None
+
+
+class _Peticion:
+    def __init__(self, socket="9.9.9.9", xff=None):
+        self.client = type("C", (), {"host": socket})()
+        self.headers = {"x-forwarded-for": xff} if xff else {}
+
+
+def test_ip_cliente_ignora_la_cabecera_sin_proxies_de_confianza():
+    # Lo que el cliente ponga en X-Forwarded-For no cuenta: vale el socket
+    # (que uvicorn ya corrigio con su propia lista de proxies privados).
+    assert S.ip_cliente(_Peticion("9.9.9.9", "1.2.3.4"), proxies=0) == "9.9.9.9"
+
+
+def test_ip_cliente_toma_el_salto_del_proxy_no_el_del_cliente():
+    # Con un proxy de confianza, la IP real es el ULTIMO salto (lo que el
+    # proxy anadio), no el primero (lo que el cliente mando).
+    assert S.ip_cliente(_Peticion("10.0.0.5", "1.2.3.4, 200.1.1.1"), proxies=1) == "200.1.1.1"
+    assert S.ip_cliente(_Peticion("10.0.0.5", "1.2.3.4, 200.1.1.1, 10.0.0.9"), proxies=2) == "200.1.1.1"
+    # Cabecera corta o ausente: socket.
+    assert S.ip_cliente(_Peticion("10.0.0.5", None), proxies=1) == "10.0.0.5"
+    assert S.ip_cliente(_Peticion("10.0.0.5", "200.1.1.1"), proxies=2) == "10.0.0.5"

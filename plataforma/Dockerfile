@@ -12,4 +12,4 @@ COPY plomada/landing.html plomada/static/ ./plomada/
 COPY plataforma/ ./plataforma/
 RUN mkdir -p /app/data
 EXPOSE 8100
-CMD ["sh", "-c", "python -m plataforma.migrar && uvicorn plataforma.app:app --host 0.0.0.0 --port ${PORT:-8100} --workers 1 --proxy-headers --forwarded-allow-ips='*'"]
+CMD ["sh", "-c", "python -m plataforma.migrar && uvicorn plataforma.app:app --host 0.0.0.0 --port ${PORT:-8100} --workers 1 --proxy-headers --forwarded-allow-ips='127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16'"]

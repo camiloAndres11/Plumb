@@ -10,4 +10,8 @@ EXPOSE 8000
 # reenvia por HTTP plano con X-Forwarded-Proto: https. Sin esto, uvicorn no
 # sabe que la conexion original fue HTTPS y genera redirects (ej. /mcp ->
 # /mcp/) con esquema http://, que el cliente MCP no puede seguir bien.
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]
+# Solo se confia en proxies de red privada (el de Render lo es): uvicorn
+# recorre X-Forwarded-For de derecha a izquierda saltando esos y se queda
+# con la primera IP publica, asi que lo que el cliente ponga a la izquierda
+# no cuenta. Con '*' cualquiera se inventaba la IP y saltaba el rate limit.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16'"]

@@ -42,7 +42,7 @@ class Prohibido(Exception):
 def crear(usuario_id: int, request: Request) -> tuple[str, str]:
     """Devuelve (id, csrf). El id va firmado en la cookie."""
     sid, csrf_token = seguridad.nuevo_token(), seguridad.nuevo_token()
-    ip = request.client.host if request.client else None
+    ip = seguridad.ip_cliente(request)
     db.ejecutar("INSERT INTO pliego.sesiones (id, usuario_id, csrf, ip, agente) VALUES (%s, %s, %s, %s, %s)",
                 [sid, usuario_id, csrf_token, ip, (request.headers.get("user-agent") or "")[:300]])
     db.ejecutar("UPDATE pliego.usuarios SET ultimo_acceso = now() WHERE id = %s", [usuario_id])
