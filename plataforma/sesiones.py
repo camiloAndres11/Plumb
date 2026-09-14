@@ -83,7 +83,7 @@ def _cargar_desde_cookie(request: Request) -> tuple[dict | None, dict | None, di
         return None, None, None
     fila = db.uno("""
         SELECT s.id AS sid, s.csrf, s.ultimo_uso,
-               u.id, u.empresa_id, u.email, u.nombre, u.rol, u.email_verificado, u.creado,
+               u.id, u.empresa_id, u.email, u.nombre, u.rol, u.email_verificado, u.creado, u.pliego_actual,
                e.nit, e.nombre AS empresa_nombre, e.perfil, e.departamentos, e.perfil_completo
         FROM pliego.sesiones s
         JOIN pliego.usuarios u ON u.id = s.usuario_id
@@ -97,7 +97,7 @@ def _cargar_desde_cookie(request: Request) -> tuple[dict | None, dict | None, di
         return None, None, None
     if datetime.now(UTC) - fila["ultimo_uso"] > TOCAR_CADA:
         db.ejecutar("UPDATE pliego.sesiones SET ultimo_uso = now() WHERE id = %s", [sid])
-    usuario = {k: fila[k] for k in ("id", "empresa_id", "email", "nombre", "rol", "email_verificado", "creado")}
+    usuario = {k: fila[k] for k in ("id", "empresa_id", "email", "nombre", "rol", "email_verificado", "creado", "pliego_actual")}
     empresa = {"id": fila["empresa_id"], "nit": fila["nit"], "nombre": fila["empresa_nombre"],
                "perfil": fila["perfil"] or {}, "departamentos": list(fila["departamentos"] or []),
                "perfil_completo": fila["perfil_completo"]}
@@ -116,7 +116,10 @@ async def cargar(request: Request, call_next):
     request.state.usuario, request.state.empresa, request.state.sesion = usuario, empresa, sesion
     # La empresa queda en contexto para los enfoques (pliego/comun/contexto.py)
     # mientras dura esta peticion; despues se limpia.
-    token = contexto.set(empresa["id"], _perfil_para_enfoques(empresa), empresa["departamentos"]) if empresa else None
+    token = None
+    if empresa:
+        perfil = _perfil_para_enfoques(empresa)
+        token = contexto.set(empresa["id"], perfil, empresa["departamentos"], pliego=_pliego_elegido(usuario, empresa, perfil))
     try:
         respuesta = await call_next(request)
     finally:
@@ -125,6 +128,16 @@ async def cargar(request: Request, call_next):
     if COOKIE in request.cookies and usuario is None and "set-cookie" not in respuesta.headers:
         quitar_cookie(respuesta)   # cookie huerfana (sesion cerrada o vencida)
     return respuesta
+
+
+def _pliego_elegido(usuario: dict, empresa: dict, perfil: dict) -> dict | None:
+    """El pliego con el que trabajan checklist y generador, si hay uno listo."""
+    try:
+        from plataforma import pliegos
+        fila = pliegos.elegido_para(usuario, empresa)
+        return pliegos.para_contexto(fila, perfil) if fila else None
+    except db.BaseNoDisponible:
+        return None
 
 
 def _perfil_para_enfoques(empresa: dict) -> dict:

@@ -1,9 +1,13 @@
-"""Trabajos en segundo plano: descargar departamentos de Croma al warehouse.
+"""Trabajos en segundo plano: descargar departamentos de Croma al warehouse
+y extraer pliegos con Claude.
 
 Un solo hilo trabajador con una cola (la API de Croma es lenta y solo hay
 tope mensual de creditos: no hay razon para mas), y un hilo reloj que a las
 05:00 de Colombia encola el refresco de todo lo que ya esta `lista`. Al
-arrancar se retoma lo `pendiente` o en `error` y lo `lista` con mas de 24 h.
+arrancar se retoma lo `pendiente` o en `error` y lo `lista` con mas de 24 h,
+y los pliegos que quedaron `subido` o `extrayendo`.
+
+Cada trabajo es ("departamento", nombre) o ("pliego", id).
 
 Estado en pliego.descargas_departamento (Postgres): pendiente -> descargando
 -> lista | error, con as_of, paginas y el error si lo hubo. /empresa/datos
@@ -24,7 +28,7 @@ import threading
 import time
 from datetime import UTC, datetime, timedelta, timezone
 
-from plataforma import db
+from plataforma import db, extraccion, pliegos
 from pliego.comun import cache, croma, fuente, warehouse
 
 log = logging.getLogger("pliego.trabajos")
@@ -32,25 +36,33 @@ COLOMBIA = timezone(timedelta(hours=-5))
 HORA_REFRESCO = 5          # 05:00 America/Bogota
 REFRESCO_CADA_H = 24
 _cola: queue.Queue = queue.Queue()
-_en_cola: set[str] = set()
+_en_cola: set[tuple] = set()
 _candado = threading.Lock()
 _hilos: list[threading.Thread] = []
 _parar = threading.Event()
 
 
-def encolar(departamento: str) -> bool:
-    """True si se encolo; False si ya estaba en cola o descargando."""
+def _encolar(trabajo: tuple) -> bool:
+    """True si se encolo; False si ya estaba en cola o en curso."""
     with _candado:
-        if departamento in _en_cola:
+        if trabajo in _en_cola:
             return False
-        _en_cola.add(departamento)
-    _cola.put(departamento)
+        _en_cola.add(trabajo)
+    _cola.put(trabajo)
     return True
+
+
+def encolar(departamento: str) -> bool:
+    return _encolar(("departamento", departamento))
+
+
+def encolar_pliego(pliego_id: int) -> bool:
+    return _encolar(("pliego", int(pliego_id)))
 
 
 def en_cola() -> list[str]:
     with _candado:
-        return sorted(_en_cola)
+        return sorted(f"{t}:{v}" if t == "pliego" else v for t, v in _en_cola)
 
 
 # ------------------------------------------------------------ una descarga
@@ -90,16 +102,20 @@ def descargar_departamento(departamento: str, api=None) -> dict:
 def _trabajador():
     while not _parar.is_set():
         try:
-            departamento = _cola.get(timeout=1)
+            trabajo = _cola.get(timeout=1)
         except queue.Empty:
             continue
+        tipo, valor = trabajo
         try:
-            descargar_departamento(departamento)
+            if tipo == "departamento":
+                descargar_departamento(valor)
+            else:
+                pliegos.extraer(valor)
         except Exception:
             pass   # ya quedo anotado en Postgres
         finally:
             with _candado:
-                _en_cola.discard(departamento)
+                _en_cola.discard(trabajo)
             _cola.task_done()
 
 
@@ -125,23 +141,31 @@ def refrescar_todo() -> int:
 
 
 def retomar_pendientes() -> int:
-    """Al arrancar: lo pendiente, lo que quedo en error o a medias, y lo
-    listo con mas de REFRESCO_CADA_H horas."""
+    """Al arrancar: lo pendiente, lo que quedo en error o a medias, lo listo
+    con mas de REFRESCO_CADA_H horas, y los pliegos sin extraer."""
     limite = datetime.now(UTC) - timedelta(hours=REFRESCO_CADA_H)
     n = 0
-    for f in db.todos("SELECT departamento FROM pliego.descargas_departamento WHERE estado IN ('pendiente', 'error', 'descargando') "
-                      "OR (estado = 'lista' AND coalesce(ultima_ok, to_timestamp(0)) < %s) ORDER BY actualizado", [limite]):
-        n += encolar(f["departamento"])
+    if croma.disponible():
+        for f in db.todos("SELECT departamento FROM pliego.descargas_departamento WHERE estado IN ('pendiente', 'error', 'descargando') "
+                          "OR (estado = 'lista' AND coalesce(ultima_ok, to_timestamp(0)) < %s) ORDER BY actualizado", [limite]):
+            n += encolar(f["departamento"])
+    if extraccion.disponible():
+        for pid in pliegos.pendientes():
+            n += encolar_pliego(pid)
     return n
 
 
 def arrancar() -> None:
-    """Lanza los hilos una sola vez por proceso. Sin CROMA_API_KEY no arranca
-    nada: la plataforma sirve lo que ya tenga el warehouse."""
+    """Lanza los hilos una sola vez por proceso. Sin CROMA_API_KEY no se
+    descargan departamentos (se sirve lo que tenga el warehouse); sin
+    ANTHROPIC_API_KEY no se extraen pliegos."""
     if _hilos:
         return
     if not croma.disponible():
         log.warning("sin CROMA_API_KEY: no se descargan departamentos; el warehouse se sirve como este")
+    if not extraccion.disponible():
+        log.warning("sin ANTHROPIC_API_KEY: los pliegos subidos no se extraen")
+    if not croma.disponible() and not extraccion.disponible():
         return
     _parar.clear()
     for objetivo, nombre in ((_trabajador, "pliego-descargas"), (_reloj, "pliego-reloj")):

@@ -129,8 +129,11 @@ ITEMS_SIDEBAR = [
     ("/app/filtro/", "filtro", "Filtro de procesos"),
     ("/app/simulador/", "grafico", "Simulador de oferta"),
     ("/app/radar/", "radar", "Radar de competidores"),
-    ("/pliegos", "doc", "Pliegos"),
+    ("/app/checklist/", "check", "Checklist del pliego"),
+    ("/app/generador/", "doc", "Generador de propuesta"),
+    ("/pliegos", "lista", "Pliegos"),
     ("/empresa/perfil/1", "perfil", "Empresa"),
+    ("/empresa/documentos", "doc", "Documentos"),
 ]
 
 

@@ -17,7 +17,8 @@ from pliego.comun.prefijo import ConPrefijo
 
 # Rutas de la plataforma que las apps montadas pueden enlazar tal cual.
 RUTAS_HUB = ("/panel", "/login", "/logout", "/empresa", "/cuenta", "/pliegos", "/app/", "/#")
-ACTIVOS = ("filtro", "simulador", "radar")     # checklist y generador: fase 5
+ACTIVOS = ("filtro", "simulador", "radar")           # siempre, con datos del departamento
+CON_PLIEGO = ("checklist", "generador")              # solo con un pliego extraido
 
 
 def datos_listos(ambito: tuple[str, ...]) -> bool:
@@ -36,8 +37,8 @@ def _redirigir(send, url: str):
 
 
 class Protegido:
-    def __init__(self, app):
-        self.app = app
+    def __init__(self, app, requiere_pliego: bool = False):
+        self.app, self.requiere_pliego = app, requiere_pliego
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
@@ -51,7 +52,11 @@ class Protegido:
             return await _redirigir(send, "/verificar")
         if not empresa or not empresa.get("perfil_completo"):
             return await _redirigir(send, "/empresa/perfil/1?error=" + quote("Complete el perfil de la empresa para usar los enfoques."))
-        if not datos_listos(contexto.ambito()):
+        if self.requiere_pliego:
+            e = contexto.get()
+            if not (e and e.pliego):
+                return await _redirigir(send, "/pliegos?error=" + quote("Suba un pliego y espere a que esté listo para usar este enfoque."))
+        elif not datos_listos(contexto.ambito()):
             return await _redirigir(send, "/empresa/datos?error=" + quote("Los datos de sus departamentos todavía se están preparando."))
         return await self.app(scope, receive, send)
 
@@ -64,9 +69,13 @@ def _sidebar(scope: dict) -> str:
 
 
 def montar(app) -> None:
+    from pliego.checklist.app import app as checklist_app
     from pliego.filtro.app import app as filtro_app
+    from pliego.generador.app import app as generador_app
     from pliego.radar.app import app as radar_app
     from pliego.simulador.app import app as simulador_app
-    for nombre, sub in (("filtro", filtro_app), ("simulador", simulador_app), ("radar", radar_app)):
+    for nombre, sub in (("filtro", filtro_app), ("simulador", simulador_app), ("radar", radar_app),
+                        ("checklist", checklist_app), ("generador", generador_app)):
         prefijo = f"/app/{nombre}"
-        app.mount(prefijo, Protegido(ConPrefijo(sub, prefijo, rutas_hub=RUTAS_HUB, sidebar=_sidebar)))
+        app.mount(prefijo, Protegido(ConPrefijo(sub, prefijo, rutas_hub=RUTAS_HUB, sidebar=_sidebar),
+                                     requiere_pliego=nombre in CON_PLIEGO))

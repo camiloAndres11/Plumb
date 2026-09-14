@@ -6,6 +6,9 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse
 
+import json
+
+from plataforma import carpeta as CARPETA
 from plataforma import cuentas, db, seguridad, sesiones, trabajos
 from plataforma import vistas as V
 
@@ -134,3 +137,99 @@ def revocar(request: Request, usuario: dict = Depends(sesiones.requiere_admin), 
             token: str = Form(...)):
     cuentas.revocar_invitacion(request.state.empresa["id"], token)
     return sesiones.redirigir("/empresa/equipo?ok=" + quote("Invitación revocada."))
+
+
+# ------------------------------------------------------- documentos
+PROPUESTA = [
+    ("representante_legal.nombre", "Representante legal: nombre", "text"), ("representante_legal.cedula", "Cédula", "text"),
+    ("representante_legal.cargo", "Cargo", "text"), ("representante_legal.profesion", "Profesión", "text"),
+    ("representante_legal.tarjeta_profesional", "Tarjeta profesional", "text"),
+    ("direccion", "Dirección", "text"), ("telefono", "Teléfono", "text"), ("correo", "Correo de la empresa", "email"),
+    ("financiero.activo_corriente", "Activo corriente (COP)", "number"), ("financiero.pasivo_corriente", "Pasivo corriente (COP)", "number"),
+    ("financiero.activo_total", "Activo total (COP)", "number"), ("financiero.pasivo_total", "Pasivo total (COP)", "number"),
+    ("financiero.utilidad_operacional", "Utilidad operacional (COP)", "number"), ("financiero.gastos_interes", "Gastos de interés (COP)", "number"),
+    ("financiero.corte", "Corte de los estados financieros", "date"), ("financiero.contador", "Contador", "text"),
+    ("financiero.revisor_fiscal", "Revisor fiscal", "text"),
+]
+
+
+def _leer(perfil: dict, ruta: str):
+    v = perfil
+    for parte in ruta.split("."):
+        v = (v or {}).get(parte) if isinstance(v, dict) else None
+    return v
+
+
+def _poner(perfil: dict, ruta: str, valor) -> None:
+    partes = ruta.split(".")
+    d = perfil
+    for parte in partes[:-1]:
+        d = d.setdefault(parte, {}) if isinstance(d.get(parte), dict) or parte not in d else d[parte]
+    if valor in (None, ""):
+        d.pop(partes[-1], None)
+    else:
+        d[partes[-1]] = valor
+
+
+@router.get("/empresa/documentos", response_class=HTMLResponse)
+def documentos(request: Request, usuario: dict = Depends(sesiones.requiere_sesion)):
+    empresa, token = request.state.empresa, sesiones.token_csrf(request)
+    perfil = empresa.get("perfil") or {}
+    docs = perfil.get("documentos") or {}
+    filas = ""
+    for clave, etiqueta, campos in CARPETA.DOCUMENTOS:
+        d = docs.get(clave) or {}
+        extras = ""
+        for nombre, tipo, et in campos:
+            if tipo == "check":
+                extras += (f'<label class="lg-check" style="font-size:13px"><input type="checkbox" name="{clave}__{nombre}" value="1"'
+                           f'{" checked" if d.get(nombre) else ""}> {V.h(et)}</label>')
+            else:
+                extras += V.campo(f"{clave}__{nombre}", et, tipo, valor=d.get(nombre, ""), requerido=False, clase="campo")
+        filas += (f'<div class="card" style="padding:14px;margin-bottom:10px"><label class="lg-check" style="font-size:15px;margin-bottom:8px">'
+                  f'<input type="checkbox" name="{clave}__tiene" value="1"{" checked" if d.get("tiene") else ""}> <b>{V.h(etiqueta)}</b></label>'
+                  f'<div class="fila">{V.campo(f"{clave}__archivo", "Nombre del archivo", valor=d.get("archivo", ""), requerido=False, clase="campo")}{extras}</div></div>')
+    propuesta = "".join(V.campo("p__" + ruta, et, tipo, valor=_leer(perfil, ruta) or "", requerido=False, clase="campo")
+                        for ruta, et, tipo in PROPUESTA)
+    cuerpo = (V.cabecera("Empresa", "Documentos y datos para la propuesta",
+                         "Lo que el checklist verifica y lo que el generador escribe en los formatos.")
+              + V.mensajes(ok=request.query_params.get("ok"), error=request.query_params.get("error"), clase="msg")
+              + f'<form method="post" action="/empresa/documentos" class="form" style="max-width:none">{V.csrf(token)}'
+                f'<div class="kicker">Carpeta de documentos</div><p class="mute" style="font-size:13px;margin:0 0 8px">Marque los que tiene al día. '
+                f'El RUP, los estados financieros y la capacidad residual se completan con lo que ya está en el perfil.</p>{filas}'
+                f'<div class="kicker" style="margin-top:18px">Datos para la propuesta</div><div class="card"><div class="fila">{propuesta}</div></div>'
+                f'<div style="margin-top:14px"><button class="btn hot" type="submit">Guardar</button></div></form>')
+    return V.privada("Documentos", cuerpo, "/empresa/documentos", usuario, empresa, token)
+
+
+@router.post("/empresa/documentos")
+async def guardar_documentos(request: Request, usuario: dict = Depends(sesiones.requiere_admin), _: None = Depends(sesiones.csrf)):
+    empresa = request.state.empresa
+    f = await request.form()
+    perfil = dict(empresa.get("perfil") or {})
+    docs = {}
+    for clave, _et, campos in CARPETA.DOCUMENTOS:
+        d = {"tiene": f.get(f"{clave}__tiene") == "1", "archivo": (f.get(f"{clave}__archivo") or "").strip()[:200]}
+        for nombre, tipo, _ in campos:
+            v = f.get(f"{clave}__{nombre}")
+            if tipo == "check":
+                d[nombre] = v == "1"
+            elif tipo == "number":
+                try:
+                    d[nombre] = float(v) if v not in (None, "") else None
+                except ValueError:
+                    d[nombre] = None
+            else:
+                d[nombre] = (v or "").strip()[:300] or None
+        docs[clave] = d
+    perfil["documentos"] = docs
+    for ruta, _et, tipo in PROPUESTA:
+        v = (f.get("p__" + ruta) or "").strip()
+        if tipo == "number" and v:
+            try:
+                v = float(v)
+            except ValueError:
+                v = None
+        _poner(perfil, ruta, v or None)
+    db.ejecutar("UPDATE pliego.empresas SET perfil = %s WHERE id = %s", [json.dumps(perfil), empresa["id"]])
+    return sesiones.redirigir("/empresa/documentos?ok=" + quote("Guardado."))

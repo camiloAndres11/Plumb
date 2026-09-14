@@ -92,6 +92,30 @@ demo) muestra las tarjetas con cifras de la empresa; checklist y generador apare
 como "Próximamente" hasta la fase 5. Las cabeceras de los enfoques dicen "datos al
 <as_of>" (`fuente.etiqueta_fecha()`) en vez de "snapshot".
 
+## Pliegos (fase 5)
+
+- `/pliegos`: subir el PDF del pliego (máx. 30 MB, sha256 para no repetir), ver estado
+  (`subido → extrayendo → listo | error`), elegir con cuál trabajar, reintentar, borrar.
+  Archivos en `$PLATAFORMA_DATOS/pliegos/<empresa>/<sha>.pdf` y las páginas citadas
+  renderizadas en `.../<sha>/p<N>.png`.
+- `plataforma/extraccion.py`: **una llamada a `claude-opus-5`** con el PDF adjunto y una
+  tool `registrar_extraccion` obligatoria cuyo `input_schema` es el contrato (proceso,
+  lotes, requisitos con cita y página, campos para la propuesta, formatos). El resultado
+  se convierte a las mismas formas de `requisitos_*.json` y `pliego_*.json`, y poppler
+  (`pdftotext -bbox-layout`, `pdftoppm`) localiza cada cita y renderiza las páginas
+  (`pliego/checklist/semilla.py::localizar`). Costo estimado en `pliegos.costo_usd`.
+  Requiere `ANTHROPIC_API_KEY` (la de la plataforma, no BYOK); sin ella los pliegos
+  quedan en `subido`. Corre en el hilo de `trabajos.py`.
+- `pliego/checklist/datos.py` y `pliego/generador/datos.py` leen el pliego del
+  contexto (`contexto.pliego`) si hay uno elegido (`usuarios.pliego_actual` o el último
+  listo de la empresa); sin contexto siguen sobre fixtures.
+- La carpeta de documentos que verifica el checklist sale de `plataforma/carpeta.py`:
+  RUP y experiencia (actividades por familia UNSPSC), indicadores y capacidad residual
+  del perfil, más lo que la empresa declara en `/empresa/documentos` (también los datos
+  para la propuesta: representante legal, contacto, estados financieros detallados).
+- Pendiente de verificar con llave real: calidad de la extracción contra
+  `requisitos_SI-LP-004-2021.json` (recall de habilitantes) y el costo por pliego.
+
 ## Variables de entorno
 
 | Variable | Qué hace |
@@ -128,5 +152,5 @@ plataforma/
 | 2 | perfil de la empresa (wizard) y contexto de empresa para los enfoques | hecha |
 | 3 | datos de Croma por departamento en un warehouse DuckDB en disco, trabajos en segundo plano | hecha |
 | 4 | filtro, radar y simulador montados bajo `/app/*` con sesión; panel con cifras de la empresa | hecha |
-| 5 | pliegos: subir PDF, extracción con Claude, checklist y generador sobre él | pendiente |
+| 5 | pliegos: subir PDF, extracción con Claude, checklist y generador sobre él | hecha (la llamada real a Claude queda por probar con `ANTHROPIC_API_KEY`) |
 | 6 | admin, health, Render con disco, documentación, PR a `dev` | pendiente |

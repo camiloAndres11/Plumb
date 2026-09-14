@@ -93,8 +93,8 @@ async def _sin_base(request: Request, exc: Exception):
     return JSONResponse({"error": {"codigo": "servicio_no_configurado", "mensaje": str(exc)}}, status_code=503)
 
 
-from plataforma.routers import cuenta, empresa, panel, perfil, publico  # noqa: E402  (registran rutas sobre `app`)
+from plataforma.routers import cuenta, empresa, panel, perfil, pliegos, publico  # noqa: E402  (registran rutas sobre `app`)
 
-for r in (publico, panel, empresa, perfil, cuenta):
+for r in (publico, panel, empresa, perfil, cuenta, pliegos):
     app.include_router(r.router)
 enfoques.montar(app)
