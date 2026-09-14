@@ -205,40 +205,55 @@ ESQUEMA_PROCESO = pa.schema([
     ("dias_ventana", pa.int64()), ("dias_restantes", pa.int64()),
 ])
 
-# Las banderas del filtro, con la misma definicion que sql/30_procesos_abiertos.sql
-# pero sobre lo que Croma deja calcular. `procesos` son los adjudicados (para
-# el p10 de ventana por modalidad); `base` da el historial de proponente unico.
-SQL_ALERTAS = """
+# Las banderas del filtro, con la misma definicion que
+# legacy/plomada/sql/30_procesos_abiertos.sql pero sobre lo que Croma deja
+# calcular. Las mismas expresiones sirven al DuckDB en memoria (modo croma:
+# tablas `procesos`, `base`, `abiertos` con dias ya calculados) y a la vista
+# del warehouse en disco (tablas `*_todo` y dias contra current_date), asi
+# que se generan desde un solo sitio y no pueden divergir.
+def sql_agregados(procesos: str = "procesos", base: str = "base") -> str:
+    """base_ventana (p10 de dias de ventana por modalidad) e hist_unico (tasa
+    de proponente unico por entidad), a partir de las tablas dadas."""
+    return f"""
 CREATE OR REPLACE TABLE base_ventana AS
 SELECT modalidad, quantile_cont(dias_ventana, 0.10) AS p10, count(*) AS n
-FROM procesos WHERE dias_ventana IS NOT NULL AND dias_ventana >= 0
+FROM {procesos} WHERE dias_ventana IS NOT NULL AND dias_ventana >= 0
 GROUP BY 1 HAVING count(*) >= 5;
 
 CREATE OR REPLACE TABLE hist_unico AS
 SELECT nit_entidad,
        avg(CASE WHEN n_oferentes_unicos <= 1 THEN 1 ELSE 0 END) AS tasa,
        count(*) AS n_historico
-FROM base
+FROM {base}
 WHERE n_oferentes_unicos IS NOT NULL AND modalidad NOT LIKE 'CONTRATACION DIRECTA%'
 GROUP BY 1 HAVING count(*) >= 5;
+"""
 
-CREATE OR REPLACE TABLE alertas AS
-SELECT a.*,
+
+def sql_banderas(dias_ventana: str = "a.dias_ventana", dias_restantes: str = "a.dias_restantes") -> str:
+    """Las columnas de banderas sobre un alias `a` (procesos abiertos) con
+    `v` (base_ventana) y `h` (hist_unico) ya unidos; `dias_ventana` y
+    `dias_restantes` son expresiones SQL. f_al_tope_minima y f_cierre_movido
+    quedan NULL con Croma (ver el docstring del modulo)."""
+    corta = f"({dias_ventana} IS NOT NULL AND v.p10 IS NOT NULL AND {dias_ventana} <= v.p10)"
+    sin_interes = f"(coalesce(a.n_invitados, 0) >= 5 AND coalesce(a.n_manifestaron, 0) = 0 AND {dias_restantes} BETWEEN 0 AND 7)"
+    return f"""
        CASE WHEN a.fecha_cierre IS NULL THEN 'sin_fecha_cierre'
-            WHEN a.dias_restantes < 0 THEN 'cierre_vencido'
+            WHEN {dias_restantes} < 0 THEN 'cierre_vencido'
             ELSE 'accionable' END                                            AS universo,
-       (a.dias_ventana IS NOT NULL AND v.p10 IS NOT NULL AND a.dias_ventana <= v.p10) AS f_ventana_corta,
+       {corta}                                                               AS f_ventana_corta,
        CAST(NULL AS BOOLEAN)                                                 AS f_al_tope_minima,
        (h.tasa >= 0.80)                                                      AS f_historial_proponente_unico,
        h.tasa                                                                AS ev_tasa_historica_entidad,
        h.n_historico                                                         AS ev_n_historico_entidad,
-       (coalesce(a.n_invitados, 0) >= 5 AND coalesce(a.n_manifestaron, 0) = 0
-          AND a.dias_restantes BETWEEN 0 AND 7)                              AS f_sin_interes_a_tiempo,
+       {sin_interes}                                                         AS f_sin_interes_a_tiempo,
        CAST(NULL AS BOOLEAN)                                                 AS f_cierre_movido,
-       ( coalesce((a.dias_ventana IS NOT NULL AND v.p10 IS NOT NULL AND a.dias_ventana <= v.p10)::INT, 0)
-       + coalesce((h.tasa >= 0.80)::INT, 0)
-       + coalesce((coalesce(a.n_invitados, 0) >= 5 AND coalesce(a.n_manifestaron, 0) = 0
-                   AND a.dias_restantes BETWEEN 0 AND 7)::INT, 0) )          AS n_banderas
+       ( coalesce({corta}::INT, 0) + coalesce((h.tasa >= 0.80)::INT, 0) + coalesce({sin_interes}::INT, 0) ) AS n_banderas"""
+
+
+SQL_ALERTAS = sql_agregados() + f"""
+CREATE OR REPLACE TABLE alertas AS
+SELECT a.*, {sql_banderas()}
 FROM abiertos a
 LEFT JOIN base_ventana v ON v.modalidad = a.modalidad
 LEFT JOIN hist_unico h ON h.nit_entidad = a.nit_entidad;
