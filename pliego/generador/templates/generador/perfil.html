@@ -13,5 +13,5 @@
     {% for c in p.rup.contratos %}<tr><td>{{ c.consecutivo }}</td><td>{{ c.objeto }}</td><td>{{ c.entidad }}</td><td class="num">{{ c.valor_smmlv|entero }}</td><td>{{ "sí" if c.terminado else "no" }}</td></tr>{% endfor %}
     </tbody></table></div>
 </div>
-<p class="foot-note">El perfil vive en pliego/generador/fixtures/perfil_constructora.json. Lo que no esté aquí sale como "Falta" en los borradores.</p>
+<p class="foot-note">El perfil vive en pliego/filtro/fixtures/perfil_constructora.json (el mismo de todos los enfoques). Lo que no esté aquí sale como "Falta" en los borradores.</p>
 {% endblock %}
