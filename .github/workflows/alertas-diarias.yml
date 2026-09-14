@@ -31,9 +31,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            data/raw/contratos
-            data/raw/procesos
-            data/warehouse
+            legacy/plomada/data/raw/contratos
+            legacy/plomada/data/raw/procesos
+            legacy/plomada/data/warehouse
           key: nucleo-${{ steps.semana.outputs.valor }}
           restore-keys: |
             nucleo-
@@ -41,10 +41,10 @@ jobs:
       - name: ingesta + build del nucleo (solo si no hay cache de esta semana)
         if: steps.cache-nucleo.outputs.cache-hit != 'true'
         run: |
-          uv run python pipeline/ingest.py
-          uv run python pipeline/build.py --steps 01 02 03 04 05 --no-export
-          uv run python pipeline/grafo.py
-          uv run python pipeline/build.py --all
+          uv run python legacy/plomada/pipeline/ingest.py
+          uv run python legacy/plomada/pipeline/build.py --steps 01 02 03 04 05 --no-export
+          uv run python legacy/plomada/pipeline/grafo.py
+          uv run python legacy/plomada/pipeline/build.py --all
 
       # Los snapshots de abiertos se acumulan para siempre (nunca se borran:
       # alertas.py necesita el de ayer para la bandera de addenda). Las
@@ -53,16 +53,16 @@ jobs:
       - name: cache de snapshots de abiertos
         uses: actions/cache@v4
         with:
-          path: data/raw/abiertos
+          path: legacy/plomada/data/raw/abiertos
           key: abiertos-${{ github.run_id }}
           restore-keys: |
             abiertos-
 
       - name: snapshot de hoy + alertas + export
         run: |
-          uv run python pipeline/ingest_abiertos.py
-          uv run python pipeline/alertas.py
-          uv run python pipeline/export_web.py
+          uv run python legacy/plomada/pipeline/ingest_abiertos.py
+          uv run python legacy/plomada/pipeline/alertas.py
+          uv run python legacy/plomada/pipeline/export_web.py
 
       # No hay hosting configurado todavia (deploy-url sigue sin llenar en
       # platanus-hack-project.jsonc): el tablero se sirve local, asi que
@@ -75,6 +75,6 @@ jobs:
           # export_web.py escribe a out_web/ desde la Tanda A de la
           # unificacion de frontends (antes era web/data/, que quedo huerfano:
           # el artefacto subia vacio todos los dias sin que nadie lo viera).
-          path: out_web/
+          path: legacy/plomada/out_web/
           retention-days: 14
           if-no-files-found: error

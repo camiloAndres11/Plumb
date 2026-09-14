@@ -43,11 +43,11 @@ os.environ.setdefault("PLATAFORMA_DATOS", config.plataforma_datos)
 
 
 class EstaticosDeDos(StaticFiles):
-    """/static sirve la landing (plomada/static: landing.css, favicon) y el
-    shell de los enfoques (pliego/static: base.css) desde una sola ruta."""
+    """/static sirve la landing (plataforma/static: landing.css, favicon) y
+    el shell de los enfoques (pliego/static: base.css) desde una sola ruta."""
 
     def get_directories(self, directory=None, packages=None):
-        return [str(RAIZ / "plomada" / "static"), str(RAIZ / "pliego" / "static")]
+        return [str(RAIZ / "plataforma" / "static"), str(RAIZ / "pliego" / "static")]
 
 
 @asynccontextmanager

@@ -1,7 +1,7 @@
 # Un solo proyecto para Pliego: el nucleo (pliego/), la plataforma
-# (plataforma/) y la demo (demo/). Plomada (pipeline/, api/, plomada/) es
-# legado: conserva sus requirements.txt propios y entra aqui solo como el
-# extra `legacy`, para que su CI y sus tests sigan corriendo.
+# (plataforma/) y la demo (demo/). Plomada (legacy/plomada/) es legado:
+# conserva sus requirements.txt propios y entra aqui solo como el extra
+# `legacy`, para que su CI y sus tests sigan corriendo.
 #
 #   uv sync --extra plataforma --extra dev        # instalar (usa uv.lock)
 #   pip install -e ".[plataforma,dev]"            # sin uv
@@ -34,8 +34,8 @@ plataforma = [
     "python-multipart>=0.0.12,<1",
     "anthropic>=0.68,<1",
 ]
-# Plomada (legado): pipeline analitico + API/MCP. Solo para correr sus tests
-# desde la raiz; sus Dockerfiles siguen usando sus requirements.txt.
+# Plomada (legacy/plomada/): pipeline analitico + API/MCP. Solo para correr
+# sus tests desde la raiz; sus Dockerfiles siguen usando sus requirements.txt.
 legacy = [
     "psycopg[binary,pool]>=3.2,<4",
     "anthropic>=0.68,<1",
@@ -60,20 +60,21 @@ build-backend = "setuptools.build_meta"
 include = ["pliego*", "plataforma*", "demo*"]
 
 [tool.pytest.ini_options]
-testpaths = ["pliego/tests", "plataforma/tests", "tests", "api/tests"]
+testpaths = ["pliego/tests", "plataforma/tests", "legacy/plomada/tests", "legacy/plomada/api/tests"]
 # Los paquetes reales (pliego, plataforma, demo) se importan desde la raiz;
-# api/, pipeline/ y plomada/ son legado con imports planos (from app...,
-# import soda, import data) y entran por ruta, sin hacks de sys.path en
-# los tests. plomada va antes que pipeline: los dos tienen build.py y el
+# legacy/plomada/{api,plomada,pipeline} son legado con imports planos (from
+# app..., import soda, import data) y entran por ruta, sin hacks de sys.path
+# en los tests. plomada va antes que pipeline: los dos tienen build.py y el
 # que importan las pruebas es el del sitio.
-pythonpath = [".", "api", "plomada", "pipeline"]
+pythonpath = [".", "legacy/plomada/api", "legacy/plomada/plomada", "legacy/plomada/pipeline"]
 addopts = "-p no:cacheprovider"
 filterwarnings = ["ignore::DeprecationWarning"]
 
 [tool.ruff]
 target-version = "py312"
 line-length = 140
-extend-exclude = ["venv", "plomada/.venv", "frontend/node_modules", "out", "out_web", "data", "plomada/site"]
+extend-exclude = ["venv", "legacy/plomada/plomada/.venv", "legacy/plomada/frontend/node_modules", "legacy/plomada/out",
+                  "legacy/plomada/out_web", "data", "legacy/plomada/data", "legacy/plomada/plomada/site"]
 
 [tool.ruff.lint]
 # E4/E7/E9/F es lo que ya exigia el CI; I ordena imports y UP moderniza
@@ -83,11 +84,11 @@ select = ["E4", "E7", "E9", "F", "I", "UP", "B"]
 ignore = ["B008", "B904", "B905", "E731", "E741", "UP015", "UP031"]
 
 [tool.ruff.lint.per-file-ignores]
-"plomada/**" = ["E4", "E7", "I", "UP", "B"]
-"pipeline/**" = ["I", "UP", "B"]
-"api/**" = ["I", "UP", "B"]
-"tests/**" = ["I", "UP", "B"]
-"design/**" = ["E4", "E7", "I", "UP", "B"]
+"legacy/plomada/plomada/**" = ["E4", "E7", "I", "UP", "B"]
+"legacy/plomada/pipeline/**" = ["I", "UP", "B"]
+"legacy/plomada/api/**" = ["I", "UP", "B"]
+"legacy/plomada/tests/**" = ["I", "UP", "B"]
+"legacy/plomada/design/**" = ["E4", "E7", "I", "UP", "B"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["pliego", "plataforma", "demo"]

@@ -9,7 +9,7 @@ que se pueden mostrar las dos a la vez.
 ## Correr en local
 
 ```
-docker compose up -d db                       # Postgres en 127.0.0.1:5432 (plomada/plomada)
+docker compose up -d db                       # Postgres en 127.0.0.1:5432 (usuario plomada, clave POSTGRES_PASSWORD del .env)
 cp .env.example .env                          # y llenar DATABASE_URL, SECRET_KEY, CROMA_API_KEY, ANTHROPIC_API_KEY
 python -m plataforma.migrar                   # crea/actualiza el esquema `pliego`
 uvicorn plataforma.app:app --port 8100        # la plataforma
@@ -125,7 +125,7 @@ pliego/comun/
 
 ## Despliegue en Render
 
-`render.yaml` define `pliego-app`: contenedor de `plataforma/Dockerfile`, `/health`,
+`deploy/render.yaml` define `pliego-app`: contenedor de `plataforma/Dockerfile`, `/health`,
 **un disco persistente en `/app/data`** (warehouse, caché de Croma, PDFs; sin disco cada
 deploy los borraría) y `numInstances: 1` (la cola y el warehouse viven en el proceso).
 Variables `sync: false` que hay que poner en el panel: `SMTP_URL`, `PLATAFORMA_ADMINS`,

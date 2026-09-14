@@ -22,3 +22,7 @@ Contexto unico: `CONTEXT.md` y `docs/adr/` en la raiz. See `docs/agents/domain.m
 ### Plataforma
 
 Pliego para empresas reales (cuentas, perfil, datos por empresa) en `plataforma/`, puerto 8100; la demo sigue en 8000. See `docs/enfoques/plataforma.md`.
+
+### Legado
+
+Plomada (producto anterior, en produccion) vive intacta en `legacy/plomada/` y no se refactoriza: solo arreglos de seguridad. Su CI es el job `legacy`. Despliegue en `deploy/` (`compose.yaml` en la raiz lo incluye).

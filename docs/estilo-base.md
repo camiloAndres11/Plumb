@@ -1,7 +1,7 @@
 # Estilo base: la landing de Pliego (`new-landing`)
 
-Resumen de los tokens y componentes de `plomada/static/landing.css` y
-`plomada/landing.html` en la rama `new-landing` (commit `06ce4fb`, "rebranding").
+Resumen de los tokens y componentes de `plataforma/static/landing.css` y
+`plataforma/static/landing.html` (copiados de `legacy/plomada/plomada/`) en la rama `new-landing` (commit `06ce4fb`, "rebranding").
 Es la referencia visual de todos los prototipos: **tema oscuro único, acento
 rojo usado con avaricia, tipografía Archivo, pastillas redondas y paneles de
 vidrio**. Cada rama `feature/*` copia este archivo y se lo pasa a `/design`.

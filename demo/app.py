@@ -2,7 +2,7 @@
 
     uvicorn demo.app:app --port 8000
 
-  /            la landing comercial de Pliego (plomada/landing.html), con
+  /            la landing comercial de Pliego (plataforma/static/landing.html), con
                «Entrar» apuntando a /login
   /login       inicio de sesion SOLO DE VISTA: «Iniciar» lleva al panel
   /panel       una tarjeta por enfoque
@@ -35,8 +35,8 @@ from pliego.radar.app import app as radar_app
 from pliego.simulador.app import app as simulador_app
 
 RAIZ = Path(__file__).resolve().parents[1]
-PLOMADA = RAIZ / "plomada"
-LANDING = PLOMADA / "landing.html"
+ESTATICOS = RAIZ / "plataforma" / "static"
+LANDING = ESTATICOS / "landing.html"
 
 ENFOQUES = P.ENFOQUES
 
@@ -44,7 +44,7 @@ _SIDEBAR_ORIGINAL = W.sidebar
 sidebar_con_hub("/panel")   # cada app montada gana el enlace «Panel» en su sidebar
 
 app = FastAPI(title="Pliego · demo para el equipo", version="0.1.0", docs_url=None, redoc_url=None)
-app.mount("/static", StaticFiles(directory=str(PLOMADA / "static")), name="static")
+app.mount("/static", StaticFiles(directory=str(ESTATICOS)), name="static")
 for ruta, sub in [("/filtro", filtro_app), ("/checklist", checklist_app), ("/simulador", simulador_app),
                   ("/radar", radar_app), ("/generador", generador_app)]:
     app.mount(ruta, ConPrefijo(sub, ruta))
@@ -147,4 +147,4 @@ def panel():
 
 @app.get("/favicon.ico")
 def favicon():
-    return FileResponse(PLOMADA / "static" / "favicon.png")
+    return FileResponse(ESTATICOS / "favicon.png")

@@ -35,7 +35,7 @@ jobs:
           uv run python -m pytest pliego/tests plataforma/tests -v
 
   # --------------------------------------------------------------- Plomada
-  # Legado en produccion: los mismos pasos de siempre, sin refactorizar.
+  # Legado en produccion (legacy/plomada/): los mismos pasos de siempre, sin refactorizar.
   legacy:
     runs-on: ubuntu-latest
     steps:
@@ -49,25 +49,25 @@ jobs:
       - name: ingesta + build + puertas de calidad
         if: github.ref == 'refs/heads/main'
         run: |
-          uv run python pipeline/ingest.py
-          uv run python pipeline/build.py --steps 01 02 03 04 05 --no-export
-          uv run python pipeline/grafo.py
-          uv run python pipeline/build.py --all
-          uv run python -m pytest tests/ -v
+          uv run python legacy/plomada/pipeline/ingest.py
+          uv run python legacy/plomada/pipeline/build.py --steps 01 02 03 04 05 --no-export
+          uv run python legacy/plomada/pipeline/grafo.py
+          uv run python legacy/plomada/pipeline/build.py --all
+          uv run python -m pytest legacy/plomada/tests/ -v
       - name: puertas de calidad (sin warehouse, se saltan las que lo necesitan) + contrato del API
         if: github.ref != 'refs/heads/main'
-        run: uv run python -m pytest tests/ api/tests/ -v
+        run: uv run python -m pytest legacy/plomada/tests/ legacy/plomada/api/tests/ -v
       # plomada/test_privacy.py es la compuerta que tumba la publicacion del
       # sitio; corre con fixtures sinteticas en cada push, no solo en main.
       - uses: actions/setup-node@v4
         with: { node-version: "22" }
       - name: sitio estatico + prueba de privacidad (plomada/test_privacy.py)
         run: |
-          uv run python design/construir.py
-          uv run python plomada/gen_synthetic.py
-          uv run python plomada/build.py
+          uv run python legacy/plomada/design/construir.py
+          uv run python legacy/plomada/plomada/gen_synthetic.py
+          uv run python legacy/plomada/plomada/build.py
       - name: paridad de formato Python/JS
-        run: node tests/test_formato.mjs
+        run: node legacy/plomada/tests/test_formato.mjs
 
   # ------------------------------------------------------------- Auditoria
   auditoria:
@@ -84,5 +84,5 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: "22" }
       - name: npm audit (islas Vue de Plomada)
-        working-directory: frontend
+        working-directory: legacy/plomada/frontend
         run: npm ci --ignore-scripts && npm audit --audit-level=high

@@ -1,7 +1,7 @@
 """Shell HTML de los prototipos: sidebar + panel, con la hoja base.
 
-Render del lado del servidor con f-strings, como plomada/build.py: sin
-plantillas ni bundler. Cada enfoque arma su cuerpo y lo pasa a pagina().
+Render del lado del servidor con f-strings, sin plantillas ni bundler
+(F4 lo pasa a Jinja2). Cada enfoque arma su cuerpo y lo pasa a pagina().
 """
 from __future__ import annotations
 
