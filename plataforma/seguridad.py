@@ -5,6 +5,7 @@ SECRET_KEY.
     hashear("clave") / verificar(hash, "clave")      argon2id
     firmar("id") / leer_firma(valor, max_edad)        cookie de sesion
     nuevo_token()                                     ids de sesion y tokens de un uso
+    huella(token)                                     lo que se guarda en la base: su SHA-256
     permitir("login:ip:1.2.3.4", max=10, ventana=900) rate limit por ventana fija
     ip_cliente(request)                               la IP real detras de los proxies de confianza
     validar_contrasena(clave, email)                  politica minima
@@ -12,6 +13,7 @@ SECRET_KEY.
 """
 from __future__ import annotations
 
+import hashlib
 import re
 import secrets
 from datetime import UTC, datetime, timedelta
@@ -81,6 +83,12 @@ def nuevo_token() -> str:
     return secrets.token_urlsafe(32)
 
 
+def huella(token: str) -> str:
+    """En la base solo va el hash: un volcado de pliego.sesiones o
+    pliego.tokens no debe servir para entrar ni para restablecer nada."""
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
 # -------------------------------------------------------------- rate limit
 def ip_cliente(request, proxies: int | None = None) -> str:
     """La IP del cliente. Con `proxies` (config.proxies_confiables) saltos de
@@ -95,19 +103,28 @@ def ip_cliente(request, proxies: int | None = None) -> str:
     return saltos[-proxies] if len(saltos) >= proxies else socket
 
 
-def permitir(clave: str, maximo: int, ventana_seg: int) -> bool:
-    """Cuenta el intento y dice si cabe en la ventana. Ventana fija alineada
-    al reloj: simple, y suficiente para frenar fuerza bruta y enumeracion."""
-    ahora = datetime.now(UTC)
-    inicio = ahora - timedelta(seconds=ahora.timestamp() % ventana_seg)
+def permitir(clave: str, maximo: int, ventana_seg: int, ahora: datetime | None = None) -> bool:
+    """Cuenta el intento y dice si cabe. Ventana deslizante aproximada con
+    dos ventanas fijas: lo de la ventana anterior pesa por la fraccion que
+    le queda por solapar. Asi 10 intentos al final de una ventana y 10 al
+    principio de la siguiente ya no pasan (con la ventana fija pasaban 20
+    en segundos)."""
+    ahora = ahora or datetime.now(UTC)
+    desfase = ahora.timestamp() % ventana_seg
+    inicio = ahora - timedelta(seconds=desfase)
+    anterior = inicio - timedelta(seconds=ventana_seg)
     fila = db.uno("""
         INSERT INTO pliego.intentos (clave, ventana, n) VALUES (%s, %s, 1)
         ON CONFLICT (clave, ventana) DO UPDATE SET n = pliego.intentos.n + 1
         RETURNING n""", [clave, inicio])
+    if not fila:
+        return False
+    prev = db.uno("SELECT n FROM pliego.intentos WHERE clave = %s AND ventana = %s", [clave, anterior])
+    n_prev = prev["n"] if prev else 0
     # Limpieza oportunista de ventanas viejas, para que la tabla no crezca.
-    if fila and fila["n"] == 1:
+    if fila["n"] == 1:
         db.ejecutar("DELETE FROM pliego.intentos WHERE ventana < %s", [ahora - timedelta(days=1)])
-    return bool(fila) and fila["n"] <= maximo
+    return fila["n"] + n_prev * (1 - desfase / ventana_seg) <= maximo
 
 
 # --------------------------------------------------------------------- NIT

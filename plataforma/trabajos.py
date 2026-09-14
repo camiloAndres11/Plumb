@@ -1,13 +1,17 @@
 """Trabajos en segundo plano: descargar departamentos de Croma al warehouse
 y extraer pliegos con Claude.
 
-Un solo hilo trabajador con una cola (la API de Croma es lenta y solo hay
-tope mensual de creditos: no hay razon para mas), y un hilo reloj que a las
-05:00 de Colombia encola el refresco de todo lo que ya esta `lista`. Al
-arrancar se retoma lo `pendiente` o en `error` y lo `lista` con mas de 24 h,
-y los pliegos que quedaron `subido` o `extrayendo`.
+Dos colas con un hilo cada una: las descargas de Croma (lentas: minutos
+por departamento, y solo hay tope mensual de creditos, asi que no hay razon
+para mas de un hilo) y las extracciones de pliegos (un par de minutos con
+Claude). Separadas para que una descarga de un departamento no deje a una
+empresa esperando su pliego. Y un hilo reloj que a las 05:00 de Colombia
+encola el refresco de todo lo que ya esta `lista`. Al arrancar se retoma lo
+`pendiente` o en `error` y lo `lista` con mas de 24 h, y los pliegos que
+quedaron `subido` o `extrayendo`.
 
-Cada trabajo es ("departamento", nombre) o ("pliego", id).
+Cada trabajo es ("departamento", nombre) o ("pliego", id); `_encolar` es
+idempotente: lo que ya esta en cola o en curso no se repite.
 
 Estado en pliego.descargas_departamento (Postgres): pendiente -> descargando
 -> lista | error, con as_of, paginas y el error si lo hubo. /empresa/datos
@@ -35,7 +39,7 @@ log = logging.getLogger("pliego.trabajos")
 COLOMBIA = timezone(timedelta(hours=-5))
 HORA_REFRESCO = 5          # 05:00 America/Bogota
 REFRESCO_CADA_H = 24
-_cola: queue.Queue = queue.Queue()
+_colas: dict[str, queue.Queue] = {"departamento": queue.Queue(), "pliego": queue.Queue()}
 _en_cola: set[tuple] = set()
 _candado = threading.Lock()
 _hilos: list[threading.Thread] = []
@@ -49,7 +53,7 @@ def _encolar(trabajo: tuple) -> bool:
         if trabajo in _en_cola:
             return False
         _en_cola.add(trabajo)
-    _cola.put(trabajo)
+    _colas[trabajo[0]].put(trabajo)
     return True
 
 
@@ -103,24 +107,24 @@ def descargar_departamento(departamento: str, api=None) -> dict:
 
 
 # ------------------------------------------------------------------ hilos
-def _trabajador():
+EJECUTA = {"departamento": lambda v: descargar_departamento(v), "pliego": lambda v: pliegos.extraer(v)}
+
+
+def _trabajador(tipo: str):
+    cola = _colas[tipo]
     while not _parar.is_set():
         try:
-            trabajo = _cola.get(timeout=1)
+            trabajo = cola.get(timeout=1)
         except queue.Empty:
             continue
-        tipo, valor = trabajo
         try:
-            if tipo == "departamento":
-                descargar_departamento(valor)
-            else:
-                pliegos.extraer(valor)
+            EJECUTA[tipo](trabajo[1])
         except Exception:
             pass   # ya quedo anotado en Postgres
         finally:
             with _candado:
                 _en_cola.discard(trabajo)
-            _cola.task_done()
+            cola.task_done()
 
 
 def _reloj():
@@ -172,8 +176,9 @@ def arrancar() -> None:
     if not croma.disponible() and not extraccion.disponible():
         return
     _parar.clear()
-    for objetivo, nombre in ((_trabajador, "pliego-descargas"), (_reloj, "pliego-reloj")):
-        h = threading.Thread(target=objetivo, name=nombre, daemon=True)
+    for objetivo, args, nombre in ((_trabajador, ("departamento",), "pliego-descargas"),
+                                   (_trabajador, ("pliego",), "pliego-extracciones"), (_reloj, (), "pliego-reloj")):
+        h = threading.Thread(target=objetivo, args=args, name=nombre, daemon=True)
         h.start()
         _hilos.append(h)
     try:
@@ -194,5 +199,5 @@ def parar() -> None:
 def esperar_cola(timeout: float = 600) -> None:
     """Para pruebas y scripts: bloquea hasta vaciar la cola."""
     fin = time.time() + timeout
-    while time.time() < fin and (en_cola() or not _cola.empty()):
+    while time.time() < fin and (en_cola() or any(not c.empty() for c in _colas.values())):
         time.sleep(0.2)

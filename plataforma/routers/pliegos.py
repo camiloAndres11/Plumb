@@ -85,7 +85,8 @@ def reintentar(request: Request, pliego_id: int, usuario: dict = Depends(sesione
 
 
 @router.post("/pliegos/{pliego_id}/borrar")
-def borrar(request: Request, pliego_id: int, usuario: dict = Depends(sesiones.requiere_admin), _: None = Depends(sesiones.csrf)):
+def borrar(request: Request, pliego_id: int, usuario: dict = Depends(sesiones.requiere_admin), _: None = Depends(sesiones.csrf),
+           _r: None = Depends(sesiones.reautenticar)):
     pliegos.borrar(request.state.empresa["id"], pliego_id)
     return sesiones.redirigir("/pliegos?ok=" + quote("Pliego borrado."))
 

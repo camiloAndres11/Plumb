@@ -73,14 +73,14 @@ def invitar(request: Request, usuario: dict = Depends(sesiones.requiere_admin), 
 
 @router.post("/empresa/equipo/rol")
 def cambiar_rol(request: Request, usuario: dict = Depends(sesiones.requiere_admin), _: None = Depends(sesiones.csrf),
-                usuario_id: int = Form(...), rol: str = Form(...)):
+                _r: None = Depends(sesiones.reautenticar), usuario_id: int = Form(...), rol: str = Form(...)):
     error = cuentas.cambiar_rol(request.state.empresa["id"], usuario_id, rol)
     return sesiones.redirigir("/empresa/equipo?" + ("error=" + quote(error) if error else "ok=" + quote("Rol actualizado.")))
 
 
 @router.post("/empresa/equipo/quitar")
 def quitar(request: Request, usuario: dict = Depends(sesiones.requiere_admin), _: None = Depends(sesiones.csrf),
-           usuario_id: int = Form(...)):
+           _r: None = Depends(sesiones.reautenticar), usuario_id: int = Form(...)):
     if usuario_id == usuario["id"]:
         return sesiones.redirigir("/empresa/equipo?error=" + quote("No puede quitarse a sí mismo."))
     error = cuentas.quitar_usuario(request.state.empresa["id"], usuario_id)

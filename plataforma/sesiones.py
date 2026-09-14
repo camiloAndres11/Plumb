@@ -1,8 +1,9 @@
 """Sesiones en servidor y lo que cuelga de ellas: cookie, CSRF, guardias.
 
-La cookie `pliego_sesion` lleva SOLO el id de la fila de pliego.sesiones,
-firmado (itsdangerous). El servidor guarda quien es, cuando se uso y el
-token CSRF. Eso permite listar y cerrar sesiones desde /cuenta y expirar
+La cookie `pliego_sesion` lleva SOLO el id de sesion, firmado
+(itsdangerous); en pliego.sesiones esta su SHA-256 (seguridad.huella), con
+quien es, cuando se uso y el token CSRF. request.state.sesion["id"] es el
+id de la base (la huella). Eso permite listar y cerrar sesiones desde /cuenta y expirar
 por inactividad (config.sesion_dias) sin tocar la cookie.
 
 En la app:
@@ -46,7 +47,7 @@ def crear(usuario_id: int, request: Request) -> tuple[str, str]:
     sid, csrf_token = seguridad.nuevo_token(), seguridad.nuevo_token()
     ip = seguridad.ip_cliente(request)
     db.ejecutar("INSERT INTO pliego.sesiones (id, usuario_id, csrf, ip, agente) VALUES (%s, %s, %s, %s, %s)",
-                [sid, usuario_id, csrf_token, ip, (request.headers.get("user-agent") or "")[:300]])
+                [seguridad.huella(sid), usuario_id, csrf_token, ip, (request.headers.get("user-agent") or "")[:300]])
     db.ejecutar("UPDATE pliego.usuarios SET ultimo_acceso = now() WHERE id = %s", [usuario_id])
     return sid, csrf_token
 
@@ -111,6 +112,7 @@ def _cargar_desde_cookie(request: Request) -> tuple[dict | None, dict | None, di
         return None, None, None
     if not sid:
         return None, None, None
+    sid = seguridad.huella(sid)
     fila = db.uno("""
         SELECT s.id AS sid, s.csrf, s.ultimo_uso, s.creada,
                u.id, u.empresa_id, u.email, u.nombre, u.rol, u.email_verificado, u.creado, u.pliego_actual,
@@ -204,6 +206,17 @@ def csrf(request: Request, csrf: str = Form("")) -> None:
     sesion = getattr(request.state, "sesion", None)
     if not sesion or not csrf or not secrets.compare_digest(csrf, sesion["csrf"]):
         raise Prohibido("formulario vencido o manipulado: vuelva a cargar la página")
+
+
+def reautenticar(request: Request, clave: str = Form("")) -> None:
+    """Para lo que no se deshace facil (cambiar roles, quitar gente, borrar
+    pliegos): el formulario trae la contrasena actual y se verifica de
+    nuevo, aunque la sesion sea valida. Una sesion abierta en un equipo
+    ajeno no basta."""
+    from plataforma import cuentas
+    usuario = actual(request)
+    if not usuario or not clave or not cuentas.verificar_clave(usuario["id"], clave):
+        raise Prohibido("confirme la acción con su contraseña actual")
 
 
 def token_csrf(request: Request) -> str:
