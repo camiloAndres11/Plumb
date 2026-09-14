@@ -18,7 +18,6 @@ Que hay en cada carpeta:
 from __future__ import annotations
 
 import logging
-import os
 import re
 import time
 from contextlib import asynccontextmanager
@@ -34,13 +33,6 @@ from pliego.comun import croma, warehouse
 
 log = logging.getLogger("pliego.plataforma")
 acceso = logging.getLogger("pliego.acceso")
-
-# La plataforma SIEMPRE sirve los enfoques desde el warehouse por empresa
-# (pliego/comun/fuente.py modo warehouse), aunque el .env compartido con la
-# demo pida `croma` o nada.
-os.environ["PLIEGO_FUENTE"] = "warehouse"
-os.environ.setdefault("PLATAFORMA_DATOS", config.plataforma_datos)
-
 
 class EstaticosDeDos(StaticFiles):
     """/static sirve la landing (plataforma/static: landing.css, favicon) y

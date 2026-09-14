@@ -50,12 +50,13 @@ Sonda:
 from __future__ import annotations
 
 import json
-import os
 import sys
 import time
 from collections.abc import Iterator
 
 import requests
+
+from pliego.comun import config as CFG
 
 BASE_URL_DEFAULT = "https://api.croma.run"
 POR_PAGINA_MAX = 100
@@ -89,7 +90,7 @@ class SinCreditos(CromaError):
 
 
 def llave() -> str | None:
-    return os.environ.get("CROMA_API_KEY") or None
+    return CFG.actual().croma_api_key or None
 
 
 def disponible() -> bool:
@@ -103,7 +104,7 @@ class CromaCliente:
         self.llave = llave_api or llave()
         if not self.llave:
             raise ClaveInvalida("falta CROMA_API_KEY (llave de organizacion croma_live_...)")
-        self.base_url = (base_url or os.environ.get("CROMA_API_URL") or BASE_URL_DEFAULT).rstrip("/")
+        self.base_url = (base_url or CFG.actual().croma_api_url or BASE_URL_DEFAULT).rstrip("/")
         self.session = session or requests.Session()
         self._dormir = dormir
         self.creditos_restantes: int | None = None
@@ -154,7 +155,7 @@ class CromaCliente:
         cuando se llega a `max_paginas` (cada pagina es 1 credito: el tope
         es el freno de mano, no un detalle). Cada fila sale con `_as_of`,
         el de su pagina, para saber de cuando es lo que se muestra."""
-        max_paginas = max_paginas or int(os.environ.get("CROMA_MAX_PAGINAS", "30"))
+        max_paginas = max_paginas or CFG.actual().croma_max_paginas
         pagina = 1
         while pagina <= max_paginas:
             data = self.llamar(ruta, {**cuerpo, "page": pagina, "per_page": por_pagina})

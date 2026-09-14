@@ -29,12 +29,13 @@ from __future__ import annotations
 import base64
 import hashlib
 import logging
-import os
 import re
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+
+from pliego.comun import config as CFG
 
 log = logging.getLogger("pliego.extraccion")
 
@@ -117,7 +118,7 @@ class ExtraccionError(RuntimeError):
 
 
 def disponible() -> bool:
-    return bool(os.environ.get("ANTHROPIC_API_KEY"))
+    return bool(CFG.actual().anthropic_api_key)
 
 
 # ------------------------------------------------------------------ Claude
@@ -125,7 +126,7 @@ def _cliente():
     import anthropic
     if not disponible():
         raise ExtraccionError("falta ANTHROPIC_API_KEY: la extracción de pliegos no está configurada")
-    return anthropic.Anthropic()
+    return anthropic.Anthropic(api_key=CFG.actual().anthropic_api_key)
 
 
 def llamar_claude(pdf: bytes, cliente=None) -> tuple[dict, dict]:

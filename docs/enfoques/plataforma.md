@@ -56,16 +56,18 @@ se imprime en el log de uvicorn con nivel WARNING. Es el modo de desarrollo.
 | `CROMA_API_KEY`, `CROMA_DESDE_ANIO`, `CROMA_*` | ver `docs/enfoques/croma.md`; sin llave no se descargan departamentos |
 | `ANTHROPIC_API_KEY` | extracción de pliegos con Claude; sin llave los pliegos quedan en `subido` |
 
-`PLIEGO_FUENTE` lo fija la plataforma en `warehouse` al arrancar, aunque el `.env`
-compartido con la demo diga otra cosa.
+`PLIEGO_FUENTE` lo fija la plataforma en `warehouse` (validador en `plataforma/config.py`),
+aunque el `.env` compartido con la demo diga otra cosa. Toda la configuración se lee una
+vez al arrancar desde el entorno y el `.env` de la raíz (`pliego/comun/config.py`); ningún
+otro módulo lee `os.environ`.
 
 ## Estructura
 
 ```
 plataforma/
   app.py          FastAPI, middlewares (sesión, acceso), manejo de errores, /health
-  config.py       pydantic-settings (patrón de api/app/config.py)
-  db.py           pool psycopg + uno/todos/ejecutar/transaccion
+  config.py       extiende pliego/comun/config.py (pydantic-settings) y registra la instancia única
+  db.py           el pool de pliego/comun/pg.py con el DSN y los mensajes de la plataforma
   migrar.py       aplica sql/*.sql una vez cada uno (tabla pliego.migraciones)
   seguridad.py    argon2id, firmas, rate limit (pliego.intentos), NIT con DV, email
   sesiones.py     cookie -> request.state.usuario/.empresa; contexto de empresa; guardias; CSRF

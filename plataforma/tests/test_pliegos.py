@@ -17,8 +17,8 @@ from types import SimpleNamespace
 import pytest
 
 from plataforma import carpeta as CARPETA
+from plataforma import config as C
 from plataforma import extraccion as X
-from pliego.comun import entorno  # noqa: F401  (carga .env: DATABASE_URL local)
 
 RAIZ = Path(__file__).resolve().parents[2]
 FIX_CHECK = RAIZ / "pliego" / "checklist" / "fixtures"
@@ -108,17 +108,16 @@ def test_carpeta_desde_el_perfil():
     assert d["formato5_capacidad_residual"]["capacidad_residual"] == 3.8e9
 
 
-DSN = os.environ.get("PLATAFORMA_TEST_DATABASE_URL") or os.environ.get("DATABASE_URL")
+DSN = os.environ.get("PLATAFORMA_TEST_DATABASE_URL") or C.config.dsn
 
 
 @pytest.mark.skipif(not DSN, reason="sin Postgres de pruebas")
 def test_subir_extraer_y_usar_en_checklist_y_generador(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
 
-    from plataforma import config as C
     from plataforma import db, migrar, pliegos
     from plataforma.tests.test_flujo import _correo_enlace, _csrf, _nit
-    C.config.database_url, C.config.smtp_url, C.config.plataforma_datos = DSN, "", str(tmp_path)
+    C.config.database_url, C.config.smtp_url, C.config.plataforma_datos = DSN, "", tmp_path
     C.config.secret_key = C.config.secret_key or "clave-de-pruebas-" + "x" * 40
     migrar.migrar(DSN, salida=open(os.devnull, "w"))
     from plataforma.app import app
@@ -206,7 +205,7 @@ def test_extraer_rechaza_por_paginas_antes_de_llamar_a_claude(tmp_path):
 
 
 def test_el_cliente_de_anthropic_se_puede_construir(monkeypatch):
-    """La dependencia esta en plataforma/requirements.txt: sin ella, en el
+    """La dependencia esta en pyproject (extra plataforma): sin ella, en el
     contenedor la extraccion moria con ImportError al poner la llave."""
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-prueba")
+    monkeypatch.setattr(C.config, "anthropic_api_key", "sk-ant-prueba")
     assert X._cliente() is not None
