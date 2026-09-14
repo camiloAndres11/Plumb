@@ -203,13 +203,13 @@ def test_wizard_de_perfil_guarda_y_deja_departamentos_pendientes(cliente):
     assert r.status_code == 200 and "departamentos_interes" in r.text
     # paso 1 valido
     r = cliente.post("/empresa/perfil/1", data={"csrf": csrf, "ciudad": "Bucaramanga", "departamento": "SANTANDER",
-                                                "departamentos_interes": ["SANTANDER", "BOYACA"],
+                                                "departamentos_interes": ["VAUPES", "GUAINIA"],
                                                 "unspsc": "V1.72141000", "unspsc_otros": "72151100, V1.72121400"})
     assert r.status_code == 303 and r.headers["location"].startswith("/empresa/perfil/2")
     emp = db.uno("SELECT perfil, departamentos, perfil_completo FROM pliego.empresas WHERE nit = %s", [nit])
-    assert emp["departamentos"] == ["SANTANDER", "BOYACA"] and not emp["perfil_completo"]
+    assert emp["departamentos"] == ["VAUPES", "GUAINIA"] and not emp["perfil_completo"]
     assert emp["perfil"]["unspsc"] == ["V1.72141000", "V1.72151100", "V1.72121400"]
-    assert db.uno("SELECT estado FROM pliego.descargas_departamento WHERE departamento = 'BOYACA'")["estado"] in ("pendiente", "descargando", "lista", "error")
+    assert db.uno("SELECT estado FROM pliego.descargas_departamento WHERE departamento = 'GUAINIA'")["estado"] == "pendiente"
     # paso 2
     r = cliente.post("/empresa/perfil/2", data={"csrf": csrf, "rup_vigente": "1", "rup_renovado": "2026-04-30",
                                                 "liquidez": "1.8", "endeudamiento": "0.55", "cobertura_intereses": "3.2",
@@ -229,12 +229,13 @@ def test_wizard_de_perfil_guarda_y_deja_departamentos_pendientes(cliente):
     assert emp["perfil"]["experiencia"][0]["entidad"] == "ALCALDIA DE GIRON"
     # la pagina de datos lista los dos departamentos; el panel cuenta 0 listos
     html = cliente.get("/empresa/datos").text
-    assert "Santander" in html and "Boyaca" in html
+    assert "Vaupes" in html and "Guainia" in html
     assert "0 de 2 listos" in cliente.get("/panel").text
+    db.ejecutar("DELETE FROM pliego.descargas_departamento WHERE departamento IN ('VAUPES', 'GUAINIA')")
     # el filtro ve el perfil de la empresa a traves del contexto
     from pliego.filtro import datos as D
     from pliego.comun import contexto
-    t = contexto.set(1, emp["perfil"] | {"nombre": "Perfil Prueba", "nit": nit}, ["SANTANDER", "BOYACA"])
+    t = contexto.set(1, emp["perfil"] | {"nombre": "Perfil Prueba", "nit": nit}, ["VAUPES", "GUAINIA"])
     try:
         assert D.perfil()["nombre"] == "Perfil Prueba"
     finally:

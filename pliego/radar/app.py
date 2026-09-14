@@ -16,6 +16,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+from pliego.comun import fuente
 from pliego.comun import web as W
 from pliego.radar import datos
 
@@ -148,7 +149,7 @@ def inicio():
     cuerpo = f"""
 <div class="cab"><div><div class="kicker">Radar · sepa contra quién compite antes de presentarse</div><h1 class="titulo">¿Quién gana ahí, y cómo?</h1></div></div>
 <div><label class="busca"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg><input id="q" placeholder="Buscar una entidad o un competidor (mínimo 3 letras)"></label><div class="res" id="res"></div></div>
-<div class="card"><div class="card-head"><div class="card-title">Procesos abiertos</div><div class="card-label">{len(datos.abiertos())} accionables · snapshot {datos.HOY()} · los 25 que cierran antes</div></div>
+<div class="card"><div class="card-head"><div class="card-title">Procesos abiertos</div><div class="card-label">{len(datos.abiertos())} accionables · {fuente.etiqueta_fecha()} · los 25 que cierran antes</div></div>
 <div class="rows" style="margin-top:12px">{filas}</div></div>
 <p class="foot-note">Fuente: contratos de construcción del SECOP II. "Probable" = ha ganado procesos parecidos; SECOP no publica quién se presentó y perdió.</p>
 """

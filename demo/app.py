@@ -17,7 +17,6 @@ acotado a este archivo.
 """
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -25,12 +24,10 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from pliego.checklist.app import app as checklist_app
-from pliego.comun import fuente
+from pliego.comun import fuente, panel as P
 from pliego.comun import web as W
+from pliego.comun.prefijo import ConPrefijo, sidebar_con_hub
 from pliego.filtro import datos as filtro_datos
-from pliego.radar import datos as radar_datos
-from pliego.simulador import datos as simulador_datos
-from pliego.simulador.metodos import VERSION_DEFECTO, VERSIONES
 from pliego.filtro.app import app as filtro_app
 from pliego.generador.app import app as generador_app
 from pliego.radar.app import app as radar_app
@@ -40,135 +37,10 @@ RAIZ = Path(__file__).resolve().parents[1]
 PLOMADA = RAIZ / "plomada"
 LANDING = PLOMADA / "landing.html"
 
-# (ruta, nombre, promesa, icono). La cifra y su pie salen de los datos
-# (ver _cifras): con los fixtures dan lo de siempre, con Croma lo de hoy.
-ENFOQUES = [
-    ("filtro", "Filtro de procesos", "Deje de presentarse a licitaciones que no puede ganar.", "filtro"),
-    ("checklist", "Checklist del pliego", "No vuelva a quedar por fuera por un papel.", "check"),
-    ("simulador", "Simulador de oferta", "Oferte al precio que maximiza su puntaje, no al más bajo.", "grafico"),
-    ("radar", "Radar de competidores", "Sepa contra quién compite antes de presentarse.", "radar"),
-    ("generador", "Generador de propuesta", "Prepare la propuesta en horas, no en días.", "doc"),
-]
-
-
-def _corto(nombre: str | None, n: int = 26) -> str:
-    """Nombre de entidad para un pie de tarjeta: en tipo oracion y recortado."""
-    s = W.frase(nombre) if nombre else ""
-    return s if len(s) <= n else s[: n - 1].rstrip() + "…"
-
-
-def _cifras() -> dict[str, tuple[str, str]]:
-    """La cifra grande y su pie por enfoque, calculadas de los datos que la
-    demo esta sirviendo. Checklist y generador siguen sobre su pliego de
-    ejemplo (Croma no entrega pliegos), asi que su cifra es fija."""
-    res = filtro_datos.resumen()
-    cifras = {
-        "filtro": (f"{res['conteo']['presentarse']} de {res['total']}", "procesos abiertos valen su tiempo"),
-        "checklist": ("3 cosas", "faltan para quedar habilitado en Bucaramanga"),
-        "generador": ("60 %", "de la propuesta lista · falta 1 cosa que la rechaza"),
-        "simulador": ("—", "sin procesos de obra abiertos"),
-        "radar": ("—", "sin procesos abiertos"),
-    }
-    abiertos = simulador_datos.abiertos()
-    if abiertos:
-        p = abiertos[0]
-        r = simulador_datos.recomendar_para(p["id_del_proceso"])
-        maximo = int(VERSIONES[VERSION_DEFECTO].puntaje_maximo)
-        ciudad = p.get("ciudad") if p.get("ciudad") not in (None, "", "NO DEFINIDO") else p.get("entidad")
-        cifras["simulador"] = (f"{100 * r['ratio']:.1f} %".replace(".", ","),
-                               f"precio recomendado para {_corto(ciudad)} · {r['esperado']:.1f} de {maximo}".replace(".", ","))
-    abiertos = radar_datos.abiertos()
-    if abiertos:
-        p = abiertos[0]
-        n = len(radar_datos.competidores_de(p["id_del_proceso"]))
-        cifras["radar"] = (str(n), f"competidores probables en {_corto(p.get('entidad'))}")
-    return cifras
-# Rutas del concentrador que las apps montadas pueden enlazar sin que se
-# les anteponga el prefijo (la sidebar de cada una lleva «Panel»).
-RUTAS_HUB = ("/panel", "/login", "/salir", "/#")
-
-W.ICONOS.setdefault("check", '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>')
-W.ICONOS.setdefault("radar", '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="4"></circle><path d="M12 3v3M12 18v3M3 12h3M18 12h3"></path></svg>')
-
-
-# ------------------------------------------------------- prefijo en el HTML
-class ConPrefijo:
-    """ASGI: antepone `prefijo` a las URLs de raiz (href/src/action, fetch y
-    location en JS) de las respuestas HTML de la app envuelta. Deja en paz
-    las rutas del concentrador y las que ya llevan el prefijo."""
-
-    _ATTR = re.compile(r'((?:href|src|action)=")/(?!/)')
-    _JS = re.compile(r"""((?:fetch|open)\(\s*['"])/(?!/)""")
-    _JS_STR = re.compile(r"""(['"])/(proceso|documento|requisito|entidad|competidor|api|pliego\.pdf|paquete\.zip)""")
-
-    def __init__(self, app, prefijo: str):
-        self.app, self.prefijo = app, prefijo
-
-    def _reescribir(self, html: str) -> str:
-        def attr(m):
-            resto = html_resto = m.string[m.end() - 1:m.end() + 8]
-            return m.group(0) if resto.startswith(RUTAS_HUB) or html_resto.startswith(self.prefijo + "/") else m.group(1) + self.prefijo + "/"
-        html = self._ATTR.sub(attr, html)
-        html = self._JS.sub(lambda m: m.group(1) + self.prefijo + "/", html)
-        html = self._JS_STR.sub(lambda m: m.group(1) + self.prefijo + "/" + m.group(2), html)
-        return html
-
-    async def __call__(self, scope, receive, send):
-        if scope["type"] != "http":
-            return await self.app(scope, receive, send)
-        partes: list[bytes] = []
-        cabecera = {}
-
-        async def send_(msg):
-            if msg["type"] == "http.response.start":
-                # Redirecciones absolutas (p. ej. / -> /proceso/x) tambien llevan prefijo.
-                headers = []
-                for k, v in msg.get("headers", []):
-                    if k == b"location" and v.startswith(b"/") and not v.startswith(b"//") \
-                            and not v.decode().startswith(RUTAS_HUB) and not v.startswith(self.prefijo.encode() + b"/"):
-                        v = self.prefijo.encode() + v
-                    headers.append((k, v))
-                msg = {**msg, "headers": headers}
-                cabecera.update(msg)
-                ct = dict(headers).get(b"content-type", b"")
-                cabecera["html"] = b"text/html" in ct
-                if not cabecera["html"]:
-                    await send(msg)
-                return
-            if msg["type"] == "http.response.body":
-                if not cabecera.get("html"):
-                    await send(msg)
-                    return
-                partes.append(msg.get("body", b""))
-                if not msg.get("more_body"):
-                    cuerpo = self._reescribir(b"".join(partes).decode("utf-8")).encode("utf-8")
-                    headers = [(k, v) for k, v in cabecera["headers"] if k != b"content-length"]
-                    headers.append((b"content-length", str(len(cuerpo)).encode()))
-                    await send({"type": "http.response.start", "status": cabecera["status"], "headers": headers})
-                    await send({"type": "http.response.body", "body": cuerpo})
-                return
-            await send(msg)
-
-        await self.app(scope, receive, send_)
-
+ENFOQUES = P.ENFOQUES
 
 _SIDEBAR_ORIGINAL = W.sidebar
-
-
-def _sidebar_con_panel():
-    """Cada app monta su sidebar con W.sidebar; aqui se le agrega el enlace
-    al panel arriba, sin tocar las apps."""
-    original = _SIDEBAR_ORIGINAL
-
-    def sidebar(items, actual, pie=""):
-        html = original(items, actual, pie)
-        volver = ('<a class="side-item" href="/panel" style="margin-bottom:6px;color:var(--ad-ink-55)">'
-                  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>Panel</a>')
-        return html.replace("</a>", "</a>" + volver, 1)   # justo despues del logo
-    W.sidebar = sidebar
-
-
-_sidebar_con_panel()
+sidebar_con_hub("/panel")   # cada app montada gana el enlace «Panel» en su sidebar
 
 app = FastAPI(title="Pliego · demo para el equipo", version="0.1.0", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=str(PLOMADA / "static")), name="static")
@@ -234,26 +106,9 @@ def login():
 """
 
 
-MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
-         "septiembre", "octubre", "noviembre", "diciembre"]
-
-
-def _fecha_larga(d) -> str:
-    return f"{d.day} de {MESES[d.month - 1]}"
-
-
 @app.get("/panel", response_class=HTMLResponse)
 def panel():
-    tarjetas = ""
-    cifras = _cifras()
-    for i, (ruta, nombre, promesa, icono) in enumerate(ENFOQUES):
-        cifra, sub = cifras[ruta]
-        hot = i == 0
-        tarjetas += f"""<a class="pn-card{' hot' if hot else ''}" href="/{ruta}/">
-  <div><div class="pn-top"><span class="pn-ico">{W.ICONOS[icono]}</span><span class="tag{'' if hot else ' tag-neutro'}">Enfoque {i + 1}</span></div>
-  <div class="pn-nombre">{W.h(nombre)}</div><div class="pn-promesa">{W.h(promesa)}</div></div>
-  <div><div class="pn-cifra num{' hot' if hot else ''}">{W.h(cifra)}</div><div class="pn-sub">{W.h(sub)}</div>
-  <div class="pn-abrir"><span>Abrir</span><span>→</span></div></div></a>"""
+    tarjetas = P.tarjetas("/")
     items = [(f"/{r}/", ic, n) for r, n, _, ic in ENFOQUES]
     # De donde salen los datos: el snapshot commiteado o Croma (ver
     # pliego/comun/fuente.py). El panel lo dice para que nadie confunda uno
@@ -261,14 +116,14 @@ def panel():
     est = fuente.estado()
     n_abiertos = len(filtro_datos.procesos())
     if est["fuente"] == "croma":
-        kicker = f"Hoy · {_fecha_larga(fuente.hoy())} · datos de Croma al {W.h(str(est.get('as_of'))[:10])}"
+        kicker = f"Hoy · {P.fecha_larga(fuente.hoy())} · datos de Croma al {W.h(str(est.get('as_of'))[:10])}"
         if est.get("llamadas"):
             detalle = f"{est['llamadas']} consultas, {est.get('creditos_restantes')} créditos restantes"
         else:
             detalle = "desde la caché local del día"
         origen = f"Datos públicos del SECOP II vía Croma (as_of {W.h(str(est.get('as_of'))[:10])}, {detalle})."
     else:
-        kicker = f"Hoy · {_fecha_larga(fuente.hoy())} · 6:00 a. m. (snapshot)"
+        kicker = f"Hoy · {P.fecha_larga(fuente.hoy())} · 6:00 a. m. (snapshot)"
         origen = f"Datos públicos del SECOP II (snapshot {fuente.hoy().isoformat()})."
     side = _SIDEBAR_ORIGINAL(items, "/panel", (
         '<div class="side-foot"><div class="kicker">Sesión</div><b>Constructora Andina S.A.S.</b>'
@@ -283,24 +138,7 @@ def panel():
 </div>
 <p class="foot-note">{origen} Perfil de constructora ficticio. Las probabilidades y recomendaciones son estimaciones; no garantizan un resultado.</p>
 """
-    css = """<style>
-.pn-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; }
-.pn-card { display: flex; flex-direction: column; justify-content: space-between; gap: 22px; padding: 26px 28px; border-radius: 18px; background: var(--ad-glass); border: 1px solid var(--ad-line); min-height: 250px; transition: border-color .3s, transform .3s var(--ad-ease); }
-.pn-card:hover { border-color: var(--ad-line-3); transform: translateY(-2px); }
-.pn-card.hot { border-color: rgba(255,255,255,.18); }
-.pn-top { display: flex; align-items: center; justify-content: space-between; }
-.pn-ico { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 12px; background: var(--ad-fill); color: var(--ad-ink-85); }
-.pn-card.hot .pn-ico { color: var(--ad-accent-2); }
-.pn-ico svg { width: 20px; height: 20px; }
-.pn-nombre { font-size: 20px; font-weight: 600; letter-spacing: -.02em; margin-top: 18px; }
-.pn-promesa { font-size: 14px; color: var(--ad-ink-60); margin-top: 6px; line-height: 1.5; }
-.pn-cifra { font-size: 28px; font-weight: 600; letter-spacing: -.03em; }
-.pn-sub { font-size: 12px; color: var(--ad-ink-50); margin-top: 2px; }
-.pn-abrir { display: flex; justify-content: space-between; margin-top: 16px; font-size: 14px; color: var(--ad-ink-85); }
-.pn-nota { display: flex; flex-direction: column; justify-content: center; gap: 10px; padding: 26px 28px; border-radius: 18px; border: 1px dashed var(--ad-line-3); color: var(--ad-ink-55); font-size: 14px; line-height: 1.5; }
-.pn-nota code { font-size: 12px; color: var(--ad-ink-75); }
-@media (max-width: 1100px) { .pn-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
-</style>"""
+    css = P.CSS
     html = W.pagina("Panel", cuerpo, side, css)
     # el shell de pliego/ carga /static/base.css; en el hub /static es el de la landing
     return html.replace('href="/static/base.css"', 'href="/filtro/static/base.css"')

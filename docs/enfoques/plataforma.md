@@ -81,6 +81,17 @@ ficticio si no (demo, pruebas). Catálogos en `plataforma/catalogos.py`.
 - Estado por departamento en `pliego.descargas_departamento`; `/health` reporta
   warehouse y cola.
 
+## Enfoques dentro de la plataforma (fase 4)
+
+`plataforma/enfoques.py` monta filtro, simulador y radar bajo `/app/<enfoque>` con
+`pliego/comun/prefijo.py::ConPrefijo` (reescribe las URLs absolutas de cada app y
+cambia su sidebar por la de la plataforma) detrás de `Protegido`, un guardia ASGI:
+sin sesión → `/login`; sin verificar → `/verificar`; sin perfil completo → wizard;
+sin datos → `/empresa/datos`. El panel (`pliego/comun/panel.py`, compartido con la
+demo) muestra las tarjetas con cifras de la empresa; checklist y generador aparecen
+como "Próximamente" hasta la fase 5. Las cabeceras de los enfoques dicen "datos al
+<as_of>" (`fuente.etiqueta_fecha()`) en vez de "snapshot".
+
 ## Variables de entorno
 
 | Variable | Qué hace |
@@ -116,6 +127,6 @@ plataforma/
 | 1 | cuentas: registro, verificación, login, reset, equipo e invitaciones, CSRF, rate limit | hecha |
 | 2 | perfil de la empresa (wizard) y contexto de empresa para los enfoques | hecha |
 | 3 | datos de Croma por departamento en un warehouse DuckDB en disco, trabajos en segundo plano | hecha |
-| 4 | filtro, radar y simulador montados bajo `/app/*` con sesión; panel con cifras de la empresa | pendiente |
+| 4 | filtro, radar y simulador montados bajo `/app/*` con sesión; panel con cifras de la empresa | hecha |
 | 5 | pliegos: subir PDF, extracción con Claude, checklist y generador sobre él | pendiente |
 | 6 | admin, health, Render con disco, documentación, PR a `dev` | pendiente |
