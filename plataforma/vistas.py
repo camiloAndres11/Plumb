@@ -16,6 +16,7 @@ uniformidad.
 """
 from __future__ import annotations
 
+from pliego.comun import panel as _panel  # noqa: F401  (registra los iconos check/radar)
 from pliego.comun import web as W
 
 h = W.h
@@ -150,10 +151,9 @@ def sidebar(actual: str, usuario: dict | None, empresa: dict | None, csrf_token:
 
 
 def privada(titulo: str, cuerpo: str, actual: str, usuario: dict | None, empresa: dict | None,
-            csrf_token: str = "", js: str = "") -> str:
-    W.ICONOS.setdefault("radar", '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="4"></circle><path d="M12 3v3M12 18v3M3 12h3M18 12h3"></path></svg>')
+            csrf_token: str = "", js: str = "", extra_head: str = "") -> str:
     return W.pagina(titulo, cuerpo, sidebar(actual, usuario, empresa, csrf_token),
-                    extra_head=f"<style>{CSS_PRIVADA}</style>", js=js)
+                    extra_head=f"<style>{CSS_PRIVADA}</style>{extra_head}", js=js)
 
 
 def cabecera(kicker: str, titulo: str, sub: str = "", derecha: str = "") -> str:

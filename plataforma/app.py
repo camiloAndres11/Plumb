@@ -25,7 +25,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from plataforma import db, seguridad, sesiones, trabajos
+from plataforma import db, enfoques, seguridad, sesiones, trabajos
 from plataforma import vistas as V
 from plataforma.config import RAIZ, VERSION, config
 from pliego.comun import warehouse
@@ -97,3 +97,4 @@ from plataforma.routers import cuenta, empresa, panel, perfil, publico  # noqa: 
 
 for r in (publico, panel, empresa, perfil, cuenta):
     app.include_router(r.router)
+enfoques.montar(app)

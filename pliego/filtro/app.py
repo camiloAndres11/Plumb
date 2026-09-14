@@ -12,6 +12,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+from pliego.comun import fuente
 from pliego.comun import web as W
 from pliego.filtro import datos, logica
 from pliego.filtro import reglas as R
@@ -137,7 +138,7 @@ def lista(recomendacion: str | None = None):
 
     cuerpo = f"""
 <div class="cab">
-  <div><div class="kicker">Procesos abiertos · snapshot {res['fecha_snapshot']} (se toma como hoy)</div>
+  <div><div class="kicker">Procesos abiertos · {fuente.etiqueta_fecha()}</div>
   <h1 class="titulo">{tot} procesos abiertos, {c['presentarse']} valen su tiempo.</h1></div>
   <span class="badge"><span class="dot"></span>Se ahorra {W.entero(res['horas_ahorradas'])} horas de propuestas que no ganaría</span>
 </div>

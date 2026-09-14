@@ -16,6 +16,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from pliego.comun import fuente
 from pliego.comun import web as W
 from pliego.simulador import datos
 from pliego.simulador.metodos import VERSIONES, VERSION_DEFECTO
@@ -157,7 +158,7 @@ def _lista(actual: str | None) -> str:
     return (f'<div class="lista"><div class="kicker">Procesos abiertos · licitación y selección abreviada</div>'
             f'<label class="busca"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>'
             f'<input id="busca" placeholder="Buscar entidad u objeto"></label>{filas}'
-            f'<div class="mute-50" style="font-size:12px">{len(datos.abiertos())} procesos · snapshot {datos.fecha_snapshot()}</div></div>')
+            f'<div class="mute-50" style="font-size:12px">{len(datos.abiertos())} procesos · {fuente.etiqueta_fecha()}</div></div>')
 
 
 JS_LISTA = """<script>

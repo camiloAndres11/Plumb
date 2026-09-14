@@ -134,3 +134,56 @@ def test_descargar_departamento_escribe_warehouse_y_estado(wh, monkeypatch):
     assert fila["estado"] == "error" and "402" in fila["error"]
     assert ses2.llamadas[0][1]["from_date"] >= (date.today().replace(day=1)).isoformat()[:4]
     db.ejecutar("DELETE FROM pliego.descargas_departamento WHERE departamento = 'VAUPES'")
+
+
+@pytest.mark.skipif(not DSN, reason="sin Postgres de pruebas")
+def test_los_enfoques_bajo_app_exigen_sesion_perfil_y_datos(wh, monkeypatch):
+    """Fase 4: /app/filtro redirige segun lo que falte y, con todo, sirve la
+    lista del filtro con la sidebar de la plataforma y los datos de la empresa."""
+    import uuid
+    from fastapi.testclient import TestClient
+
+    from plataforma import config as C
+    from plataforma import db, migrar
+    C.config.database_url, C.config.smtp_url = DSN, ""
+    C.config.secret_key = C.config.secret_key or "clave-de-pruebas-" + "x" * 40
+    migrar.migrar(DSN, salida=open(os.devnull, "w"))
+    from plataforma.app import app
+    from plataforma.tests.test_flujo import _correo_enlace, _nit
+    with TestClient(app, base_url="http://127.0.0.1:8100", follow_redirects=False) as c:
+        # sin sesion
+        r = c.get("/app/filtro/")
+        assert r.status_code == 303 and r.headers["location"].startswith("/login?siguiente=%2Fapp%2Ffiltro")
+        # con sesion pero sin perfil
+        sufijo = uuid.uuid4().hex[:8]
+        admin = f"enf-{sufijo}@ejemplo.test"
+        nit_con_dv, nit = _nit()
+        c.post("/registro", data={"empresa": "Enfoques Prueba", "nit": nit_con_dv, "nombre": "Ana", "email": admin,
+                                  "clave": "una-clave-larga-1", "acepta": "1"})
+        c.get(_correo_enlace(admin, "/verificar"))
+        r = c.get("/app/filtro/")
+        assert r.status_code == 303 and r.headers["location"].startswith("/empresa/perfil/1")
+        # perfil completo (directo en la base) pero sin datos
+        import json
+        perfil = json.load(open("pliego/filtro/fixtures/perfil_constructora.json"))
+        perfil["departamentos_interes"] = ["VICHADA"]
+        db.ejecutar("UPDATE pliego.empresas SET perfil = %s, departamentos = %s, perfil_completo = TRUE WHERE nit = %s",
+                    [json.dumps(perfil), ["VICHADA"], nit])
+        r = c.get("/app/filtro/")
+        assert r.status_code == 303 and r.headers["location"].startswith("/empresa/datos")
+        assert "Lo que falta" in c.get("/panel").text
+        # con datos del departamento
+        wh.upsert("VICHADA", *_lote(1, 7), as_of="2026-09-14T05:00:00Z")
+        r = c.get("/app/filtro/")
+        assert r.status_code == 200
+        assert 'href="/panel"' in r.text and "Enfoques Prueba" in r.text          # sidebar de la plataforma
+        assert 'href="/app/filtro/static/base.css"' in r.text                    # prefijo reescrito
+        assert "datos al 2026-09-14" in r.text
+        html = c.get("/panel").text
+        assert "pn-card" in html and "Próximamente" in html and 'href="/app/filtro/"' in html
+        assert c.get("/app/radar/").status_code == 200
+        r = c.get("/app/simulador/")            # el simulador redirige al primer proceso, con prefijo
+        assert r.status_code == 307 and r.headers["location"].startswith("/app/simulador/proceso/")
+        assert c.get(r.headers["location"]).status_code == 200
+        db.ejecutar("DELETE FROM pliego.empresas WHERE nit = %s", [nit])
+        db.ejecutar("DELETE FROM pliego.descargas_departamento WHERE departamento = 'VICHADA'")

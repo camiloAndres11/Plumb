@@ -100,6 +100,14 @@ def hoy() -> date:
     return FECHA_SNAPSHOT if activa() == "fixtures" else date.today()
 
 
+def etiqueta_fecha() -> str:
+    """Para las cabeceras de los enfoques: de cuando son los datos."""
+    if activa() == "fixtures":
+        return f"snapshot {FECHA_SNAPSHOT.isoformat()} (se toma como hoy)"
+    as_of = str(estado().get("as_of") or "")[:10]
+    return f"datos al {as_of}" if as_of else "datos de hoy"
+
+
 def filas(enfoque: str, nombre: str) -> list[dict]:
     """Las filas que `pliego/<enfoque>/fixtures/<nombre>.parquet` tendria:
     del parquet, o de Croma / del warehouse a traves de la misma SQL de la
