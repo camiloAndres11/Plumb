@@ -335,3 +335,19 @@ def test_el_csv_publica_las_mismas_columnas_que_el_json(cliente, monkeypatch):
         .text.lstrip("﻿").splitlines()[0].split(",")
     )
     assert json_cols == csv_cols == set(ContratoResumen.model_fields)
+
+
+def test_la_ficha_no_expone_cedulas_de_personas_naturales(cliente, monkeypatch):
+    """Las cedulas del ordenador, el supervisor y el representante legal son
+    dato personal: la ficha dice si estan y si dos coinciden, nunca el numero."""
+    fila = {**CONTRATO, "doc_ordenador": "1098765432", "doc_supervisor": "1098765432",
+            "doc_replegal": "79123456", "ordenador": "PEPE", "supervisor": "PEPE"}
+    monkeypatch.setattr(consultas, "consultar_uno", lambda *a, **k: fila)
+    monkeypatch.setattr(consultas, "_detalle_banderas", lambda f: [])
+    cuerpo = cliente.get("/v1/contratos/CO1.BDOS.1").text
+    for cedula in ("1098765432", "79123456"):
+        assert cedula not in cuerpo
+    partes = cliente.get("/v1/contratos/CO1.BDOS.1").json()["datos"]["partes"]
+    assert partes["tiene_doc_ordenador"] and partes["tiene_doc_replegal"]
+    assert partes["mismo_ordenador_supervisor"] is True
+    assert "doc_ordenador" not in partes and "doc_supervisor" not in partes and "doc_replegal" not in partes

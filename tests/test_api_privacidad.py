@@ -15,17 +15,13 @@ Aqui hay dos pruebas distintas, y conviene no confundirlas:
      ninguna vista lo vea. Si esto falla, Plomada esta publicando documentos:
      es un fallo duro y bloquea.
 
-  2. test_api_no_devuelve_documentos — lo que este repo NO controla. El API
-     (`/v1/*`, mantenido en otro repo) devuelve doc_ordenador, doc_supervisor,
-     doc_replegal y doc_proveedor en texto plano. sanear() evita que Plomada
-     los pinte, indexe o exporte, pero NO evita que viajen por la red hasta el
-     navegador: eso solo se arregla en el serializador del API.
-
-     Va marcado xfail(strict=True) a proposito. Mientras la fuga siga abierta
-     el test falla "como se espera" y no bloquea el trabajo del resto del
-     equipo; el dia que alguien la cierre, el XPASS rompe el build y obliga a
-     borrar el marcador, convirtiendo esto en una puerta de verdad. Un CI
-     rojo permanente se aprende a ignorar, que es peor que no tenerlo.
+  2. test_api_no_devuelve_documentos — la puerta del lado del API. Desde
+     2026-09 el serializador (api/app/consultas.py::_partes) ya no emite las
+     cedulas de ordenador, supervisor ni representante legal: emite su
+     presencia (tiene_doc_*) y si dos coinciden. Este test lo verifica contra
+     el API desplegado; api/tests/test_api.py lo verifica sin red.
+     doc_proveedor se queda: es el NIT del contratista y el identificador del
+     recurso /v1/proveedores (sanear() lo sigue borrando en el cliente).
 """
 from __future__ import annotations
 
@@ -142,16 +138,19 @@ def test_cliente_sanea_la_red(contrato_crudo):
     assert not fugas, f"api.js::sanear() dejo pasar {fugas} en el grafo de red"
 
 
-# ------------------------------------------------ 2. lo que NO controlamos
+# --------------------------------------------------- 2. la puerta del API
+PERSONALES = ["doc_ordenador", "doc_supervisor", "doc_replegal"]
+
+
 @pytest.mark.xfail(
-    strict=True,
-    reason="FUGA ABIERTA EN EL API: /v1/contratos/{id} devuelve doc_ordenador, "
-           "doc_supervisor, doc_replegal y doc_proveedor en texto plano, y el "
-           "listado devuelve doc_proveedor en cada fila. api.js::sanear() evita "
-           "que Plomada los publique, pero no evita que lleguen al navegador. "
-           "El arreglo va en el serializador del API (otro repo). Cuando se "
-           "cierre, este test pasara y el strict=True rompera el build: "
-           "borrar entonces este marcador para que quede como puerta real.")
+    strict=False,
+    reason="El arreglo (api/app/consultas.py::_partes) esta en la rama y probado sin red "
+           "en api/tests/test_api.py; este test golpea el API DESPLEGADO, que sale de main. "
+           "Pasara solo cuando main lo tenga. strict=False: no rompe al pasar, y entonces "
+           "se borra este marcador.")
 def test_api_no_devuelve_documentos(contrato_crudo):
-    fugas = sorted(_claves(contrato_crudo) & set(PROHIBIDOS))
-    assert not fugas, f"el API devuelve documentos prohibidos: {fugas}"
+    """Las cedulas de personas naturales no salen del API (Ley 1581 de 2012)."""
+    fugas = sorted(_claves(contrato_crudo) & set(PERSONALES))
+    assert not fugas, f"el API devuelve documentos de personas naturales: {fugas}"
+    partes = contrato_crudo.get("partes") or {}
+    assert "tiene_doc_ordenador" in partes, "el API dejo de decir si el documento del ordenador esta"

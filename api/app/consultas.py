@@ -123,6 +123,23 @@ def banderas_encendidas(fila):
     return [b for b in _glosario_por_nombre() if fila.get(b)]
 
 
+def _partes(f: dict) -> dict:
+    """Las cedulas de ordenador, supervisor y representante legal se quedan
+    en la base: solo sale su presencia y si ordenador y supervisor coinciden
+    (lo que f_datos_faltantes y f_ordenador_es_supervisor necesitan)."""
+    def hay(k):
+        v = f.get(k)
+        return v is not None and str(v).strip() != ""
+    return {
+        "proveedor": f.get("proveedor"), "doc_proveedor": f.get("doc_proveedor"),
+        "ordenador": f.get("ordenador"), "supervisor": f.get("supervisor"),
+        "tiene_doc_ordenador": hay("doc_ordenador"),
+        "tiene_doc_supervisor": hay("doc_supervisor"),
+        "tiene_doc_replegal": hay("doc_replegal"),
+        "mismo_ordenador_supervisor": hay("doc_ordenador") and str(f.get("doc_ordenador")).strip() == str(f.get("doc_supervisor") or "").strip(),
+    }
+
+
 def _detalle_banderas(fila):
     """Banderas encendidas + los numeros ev_* que las sustentan.
 
@@ -336,8 +353,7 @@ def contrato(id_contrato):
                         "rec_regalias", "rec_sgp", "rec_propios_terr"),
         "competencia": campo("n_oferentes_unicos", "n_invitados", "dias_ventana",
                              "dias_originales", "dias_adicionados"),
-        "partes": campo("proveedor", "doc_proveedor", "ordenador", "doc_ordenador",
-                        "supervisor", "doc_supervisor", "doc_replegal"),
+        "partes": _partes(f),
         "riesgo": campo("es_atipico", "puntos_crudos", "score", "n_banderas_fuertes",
                         "puntos_red", "n_banderas_red_fuertes", "cluster_id",
                         "tamano_cluster"),
