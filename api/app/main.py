@@ -159,6 +159,20 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def _cabeceras_seguridad(request: Request, call_next):
+    """Cabeceras minimas. Sin CSP: la API es JSON y /docs carga Swagger UI
+    desde un CDN; frame-ancestors si, porque nada de esto va en un iframe."""
+    respuesta = await call_next(request)
+    h = respuesta.headers
+    h.setdefault("X-Frame-Options", "DENY")
+    h.setdefault("X-Content-Type-Options", "nosniff")
+    h.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    if request.url.scheme == "https":
+        h.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return respuesta
+
+
 # ---------------------------------------------------------------------
 # Errores: un solo formato, para que un cliente pueda programar contra el
 # ---------------------------------------------------------------------

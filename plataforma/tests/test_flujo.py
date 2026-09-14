@@ -54,6 +54,15 @@ def _correo_enlace(destinatario: str, ruta: str) -> str:
     raise AssertionError(f"sin correo a {destinatario} con {ruta}")
 
 
+def _login(cliente, email: str, clave: str, **extra):
+    """Como un navegador: GET /login (cookie + token de doble envio) y luego POST."""
+    pagina = cliente.get("/login")
+    if pagina.status_code == 303:   # habia una sesion de un test anterior
+        cliente.cookies.clear()
+        pagina = cliente.get("/login")
+    return cliente.post("/login", data={"email": email, "clave": clave, "csrf": _csrf(pagina.text), **extra})
+
+
 def _csrf(html: str) -> str:
     m = re.search(r'name="csrf" value="([^"]+)"', html)
     assert m, "sin csrf en la pagina"
@@ -80,7 +89,7 @@ def test_registro_verificacion_login_equipo_y_reset(cliente):
                                         "email": admin, "clave": "una-clave-larga-1", "acepta": "1"})
     assert r.status_code == 303 and r.headers["location"].startswith("/verificar?enviado=")
     # sin verificar no se entra al panel
-    r = cliente.post("/login", data={"email": admin, "clave": "una-clave-larga-1"})
+    r = _login(cliente, admin, "una-clave-larga-1")
     assert r.status_code == 303 and r.headers["location"] == "/verificar"
     assert cliente.get("/panel").status_code == 303   # redirige a /verificar
     cliente.cookies.clear()
@@ -153,7 +162,7 @@ def test_registro_verificacion_login_equipo_y_reset(cliente):
     enlace = _correo_enlace(admin, "/restablecer")
     r = cliente.post(enlace, data={"clave": "clave-final-larga-4", "clave2": "clave-final-larga-4"})
     assert r.headers["location"].startswith("/login?ok=")
-    r = cliente.post("/login", data={"email": admin, "clave": "clave-final-larga-4"})
+    r = _login(cliente, admin, "clave-final-larga-4")
     assert r.status_code == 303 and r.headers["location"] == "/panel"
     # "olvide" con un correo inexistente responde igual
     r = cliente.post("/olvide", data={"email": f"nadie-{sufijo}@ejemplo.test"})
@@ -166,7 +175,7 @@ def test_login_se_frena_por_fuerza_bruta(cliente):
     email = f"nadie-{uuid.uuid4().hex[:6]}@ejemplo.test"
     ultimo = ""
     for _ in range(6):
-        r = cliente.post("/login", data={"email": email, "clave": "cualquier-cosa-larga"})
+        r = _login(cliente, email, "cualquier-cosa-larga")
         ultimo = r.text
     assert "Demasiados intentos" in ultimo
     db.ejecutar("DELETE FROM pliego.intentos")

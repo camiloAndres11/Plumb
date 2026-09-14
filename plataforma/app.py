@@ -76,6 +76,28 @@ def ruta_para_log(path: str) -> str:
     return _TOKEN_EN_PATH.sub(r"\1<token>", path)
 
 
+# TODO(F4): al sacar el CSS y el JS inline a archivos (plantillas Jinja),
+# quitar 'unsafe-inline' de script-src y style-src.
+CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+       "img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; "
+       "base-uri 'self'; form-action 'self'")
+
+
+@app.middleware("http")
+async def _cabeceras_seguridad(request: Request, call_next):
+    """Sin CSP cualquier XSS futuro es explotacion total; sin frame-ancestors
+    un iframe invisible sobre /pliegos/{id}/borrar es clickjacking."""
+    respuesta = await call_next(request)
+    h = respuesta.headers
+    h.setdefault("Content-Security-Policy", CSP)
+    h.setdefault("X-Frame-Options", "DENY")
+    h.setdefault("X-Content-Type-Options", "nosniff")
+    h.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    if request.url.scheme == "https":
+        h.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return respuesta
+
+
 @app.middleware("http")
 async def _acceso(request: Request, call_next):
     """Una linea por peticion con usuario y empresa: es lo que hay que

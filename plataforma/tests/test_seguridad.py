@@ -75,3 +75,18 @@ def test_el_log_de_acceso_no_lleva_tokens():
     assert ruta_para_log("/verificar") == "/verificar"
     assert ruta_para_log("/verificar/reenviar") == "/verificar/<token>"   # ruta fija, pero mejor de mas que de menos
     assert ruta_para_log("/pliegos/12/usar") == "/pliegos/12/usar"
+
+
+def test_cabeceras_de_seguridad_y_cookie_de_login():
+    from fastapi.testclient import TestClient
+    from plataforma.app import app
+    with TestClient(app, follow_redirects=False) as c:
+        r = c.get("/terminos")
+        assert "frame-ancestors 'none'" in r.headers["content-security-policy"]
+        assert r.headers["x-frame-options"] == "DENY" and r.headers["x-content-type-options"] == "nosniff"
+        r = c.get("/login")
+        assert "pliego_login" in r.cookies and 'name="csrf"' in r.text
+        # Un POST sin el token de doble envio no pasa (login CSRF).
+        c.cookies.clear()
+        r = c.post("/login", data={"email": "a@b.co", "clave": "x" * 12})
+        assert r.status_code == 403

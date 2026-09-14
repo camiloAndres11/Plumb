@@ -125,20 +125,28 @@ def verificar(request: Request, token: str):
         return sesiones.redirigir("/login?error=" + quote("El enlace no es válido o ya venció. Pida uno nuevo al ingresar."))
     sid, _ = sesiones.crear(usuario["id"], request)
     respuesta = sesiones.redirigir("/empresa/perfil/1?ok=" + quote("Correo confirmado. Ahora cuéntenos de su empresa."))
-    sesiones.poner_cookie(respuesta, sid)
+    sesiones.poner_cookie(respuesta, sid, request)
     return respuesta
 
 
 # ------------------------------------------------------------------ login
-def _form_login(email: str = "", error: str | None = None, ok: str | None = None, siguiente: str = "") -> str:
+def _form_login(email: str = "", error: str | None = None, ok: str | None = None, siguiente: str = "",
+                token: str = "") -> str:
     sig = f'<input type="hidden" name="siguiente" value="{V.h(siguiente)}">' if siguiente else ""
     return (f'<div>{BADGE}<h1>Ingrese a Pliego.</h1><p class="sub">Sus licitaciones de hoy, listas a las 6:00.</p></div>'
             f'{V.mensajes(ok=ok, error=error)}'
-            f'<form method="post" action="/login" class="lg-campos">{sig}'
+            f'<form method="post" action="/login" class="lg-campos">{sig}{V.csrf(token)}'
             f'{V.campo("email", "Correo", "email", valor=email, autocomplete="email")}'
             f'{V.campo("clave", "Contraseña", "password", autocomplete="current-password")}'
             f'<button class="ad-btn ad-btn-shadow" type="submit">Iniciar</button></form>'
             f'<div class="lg-links"><a href="/olvide">¿Olvidó su contraseña?</a><a href="/registro">Crear una cuenta</a></div>')
+
+
+def _pagina_login(request: Request, **kw) -> HTMLResponse:
+    token = sesiones.token_login(request)
+    respuesta = HTMLResponse(V.publica("Ingresar", _form_login(token=token, **kw)))
+    sesiones.poner_cookie_login(respuesta, token, request)
+    return respuesta
 
 
 @router.get("/login", response_class=HTMLResponse)
@@ -146,21 +154,22 @@ def login(request: Request):
     if sesiones.actual(request):
         return sesiones.redirigir("/panel")
     q = request.query_params
-    return V.publica("Ingresar", _form_login(error=q.get("error"), ok=q.get("ok"), siguiente=q.get("siguiente", "")))
+    return _pagina_login(request, error=q.get("error"), ok=q.get("ok"), siguiente=q.get("siguiente", ""))
 
 
 @router.post("/login", response_class=HTMLResponse)
-def iniciar(request: Request, email: str = Form(""), clave: str = Form(""), siguiente: str = Form("")):
+def iniciar(request: Request, _: None = Depends(sesiones.csrf_login), email: str = Form(""), clave: str = Form(""),
+            siguiente: str = Form("")):
     e = seguridad.email_valido(email) or ""
     if not seguridad.permitir("login:ip:" + _ip(request), 10, 900) or (e and not seguridad.permitir("login:email:" + e, 5, 900)):
-        return V.publica("Ingresar", _form_login(email, "Demasiados intentos. Espere 15 minutos.", siguiente=siguiente))
+        return _pagina_login(request, email=email, error="Demasiados intentos. Espere 15 minutos.", siguiente=siguiente)
     usuario = cuentas.autenticar(e, clave) if e else None
     if not usuario:
-        return V.publica("Ingresar", _form_login(email, "Correo o contraseña incorrectos.", siguiente=siguiente))
+        return _pagina_login(request, email=email, error="Correo o contraseña incorrectos.", siguiente=siguiente)
     sid, _ = sesiones.crear(usuario["id"], request)
     destino = "/verificar" if not usuario["email_verificado"] else _siguiente(request, siguiente)
     respuesta = sesiones.redirigir(destino)
-    sesiones.poner_cookie(respuesta, sid)
+    sesiones.poner_cookie(respuesta, sid, request)
     return respuesta
 
 
@@ -170,7 +179,7 @@ def salir(request: Request, _: None = Depends(sesiones.csrf)):
     if sesion:
         sesiones.cerrar(sesion["id"])
     respuesta = sesiones.redirigir("/login?ok=" + quote("Sesión cerrada."))
-    sesiones.quitar_cookie(respuesta)
+    sesiones.quitar_cookie(respuesta, request)
     return respuesta
 
 
@@ -257,7 +266,7 @@ def aceptar(request: Request, token: str, nombre: str = Form(""), clave: str = F
         return sesiones.redirigir("/login?error=" + quote("Ese correo ya tiene una cuenta. Ingrese con ella."))
     sid, _ = sesiones.crear(usuario["id"], request)
     respuesta = sesiones.redirigir("/panel?ok=" + quote("Bienvenido. Ya hace parte del equipo."))
-    sesiones.poner_cookie(respuesta, sid)
+    sesiones.poner_cookie(respuesta, sid, request)
     return respuesta
 
 

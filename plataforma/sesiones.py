@@ -12,6 +12,7 @@ En la app:
 """
 from __future__ import annotations
 
+import secrets
 from datetime import UTC, datetime, timedelta
 from urllib.parse import quote
 
@@ -23,6 +24,7 @@ from plataforma.config import config
 from pliego.comun import contexto
 
 COOKIE = "pliego_sesion"
+COOKIE_LOGIN = "pliego_login"      # token de doble envio del formulario de login (sin sesion aun)
 TOCAR_CADA = timedelta(minutes=5)
 
 
@@ -49,13 +51,41 @@ def crear(usuario_id: int, request: Request) -> tuple[str, str]:
     return sid, csrf_token
 
 
-def poner_cookie(respuesta: Response, sid: str) -> None:
+def _segura(request: Request | None) -> bool:
+    """Secure si la peticion llego por https (uvicorn ya aplico
+    X-Forwarded-Proto del proxy de confianza) o si BASE_URL lo es: un typo
+    en BASE_URL no debe dejar la cookie viajando en claro."""
+    return bool(request is not None and request.url.scheme == "https") or config.cookies_seguras
+
+
+def poner_cookie(respuesta: Response, sid: str, request: Request | None = None) -> None:
     respuesta.set_cookie(COOKIE, seguridad.firmar(sid), max_age=config.sesion_dias * 86400,
-                         httponly=True, samesite="lax", secure=config.cookies_seguras, path="/")
+                         httponly=True, samesite="lax", secure=_segura(request), path="/")
 
 
-def quitar_cookie(respuesta: Response) -> None:
-    respuesta.delete_cookie(COOKIE, path="/")
+def quitar_cookie(respuesta: Response, request: Request | None = None) -> None:
+    # Mismos atributos que al ponerla: si no coinciden, el navegador ignora
+    # el borrado y la cookie sobrevive al logout.
+    respuesta.delete_cookie(COOKIE, path="/", httponly=True, samesite="lax", secure=_segura(request))
+
+
+# ------------------------------------------------------ csrf sin sesion
+def token_login(request: Request) -> str:
+    """El token del formulario de login: viaja en una cookie y en un campo
+    oculto (doble envio). Sin esto un sitio ajeno podia iniciar sesion en
+    la cuenta del atacante desde el navegador de la victima."""
+    return request.cookies.get(COOKIE_LOGIN) or seguridad.nuevo_token()
+
+
+def poner_cookie_login(respuesta: Response, token: str, request: Request | None = None) -> None:
+    respuesta.set_cookie(COOKIE_LOGIN, token, max_age=3600, httponly=True, samesite="lax",
+                         secure=_segura(request), path="/login")
+
+
+def csrf_login(request: Request, csrf: str = Form("")) -> None:
+    esperado = request.cookies.get(COOKIE_LOGIN, "")
+    if not esperado or not csrf or not secrets.compare_digest(csrf, esperado):
+        raise Prohibido("formulario vencido o manipulado: vuelva a cargar la página")
 
 
 def cerrar(sid: str) -> None:
@@ -126,7 +156,7 @@ async def cargar(request: Request, call_next):
         if token is not None:
             contexto.reset(token)
     if COOKIE in request.cookies and usuario is None and "set-cookie" not in respuesta.headers:
-        quitar_cookie(respuesta)   # cookie huerfana (sesion cerrada o vencida)
+        quitar_cookie(respuesta, request)   # cookie huerfana (sesion cerrada o vencida)
     return respuesta
 
 
@@ -169,7 +199,7 @@ def requiere_admin(request: Request) -> dict:
 
 def csrf(request: Request, csrf: str = Form("")) -> None:
     sesion = getattr(request.state, "sesion", None)
-    if not sesion or not csrf or csrf != sesion["csrf"]:
+    if not sesion or not csrf or not secrets.compare_digest(csrf, sesion["csrf"]):
         raise Prohibido("formulario vencido o manipulado: vuelva a cargar la página")
 
 
