@@ -9,7 +9,8 @@ enfoque es la de siempre y ni logica.py ni app.py se enteran del cambio.
 
     PLIEGO_FUENTE=croma CROMA_API_KEY=croma_live_... uvicorn demo.app:app
 
-Sin esas variables se leen los parquet commiteados, como hasta ahora.
+o las mismas dos variables en el `.env` de la raiz (ver .env.example; lo
+carga pliego/comun/entorno.py). Sin ellas se leen los parquet commiteados.
 
 Lo que se trae de Croma (todo a dataset, 1 credito por pagina de 100):
   - contratos SECOP II de los tipos de construccion, por departamento de
@@ -44,6 +45,7 @@ from pathlib import Path
 import duckdb
 import pyarrow as pa
 
+from pliego.comun import entorno  # noqa: F401  (carga .env al importar)
 from pliego.comun import mapeo_croma as M
 
 RAIZ = Path(__file__).resolve().parents[1]
