@@ -82,6 +82,19 @@ def notice_uid(*candidatos) -> str | None:
     return None
 
 
+def unspsc(x) -> str | None:
+    """Al formato del warehouse, 'V1.72141000'. SECOP II ya viene asi; SECOP I
+    trae 6 digitos ('721410', nivel clase) y a veces 'UNSPECIFIED'."""
+    if not x:
+        return None
+    s = str(x).strip()
+    if s.startswith("V1."):
+        return s
+    if s.isdigit() and 4 <= len(s) <= 8:
+        return "V1." + s.ljust(8, "0")
+    return None
+
+
 def _primero(r: dict, *nombres):
     for n in nombres:
         v = r.get(n)
@@ -93,6 +106,7 @@ def _primero(r: dict, *nombres):
 # Nombres alternativos para lo que la doc de Croma no fija. Un solo sitio
 # que ajustar tras correr la sonda.
 ALIAS = {
+    "es_grupo": ("provider_is_group", "is_group"),
     "proceso_id": ("process_id", "notice_uid", "process_notice_uid", "process_url", "url"),
     "oferentes_unicos": ("unique_responding_providers", "unique_bidders", "responding_providers"),
     "respuestas": ("responses", "offer_responses"),
@@ -118,7 +132,7 @@ def proceso_a_fila(r: dict, hoy: date) -> dict:
         "ciudad": norm_txt(r.get("entity_city")),
         "tipo_contrato": norm_txt(r.get("contract_type")),
         "modalidad": norm_txt(r.get("modality")),
-        "unspsc": r.get("unspsc_code"),
+        "unspsc": unspsc(r.get("unspsc_code")),
         "descripcion": r.get("description") or r.get("name"),
         "precio_base": numero(_primero(r, *ALIAS["precio_base"])),
         "valor_adjudicado": numero(r.get("awarded_value")),
@@ -165,7 +179,7 @@ def contrato_a_fila(r: dict, proceso: dict | None = None) -> dict:
     valor = numero(r.get("value"))
     firma = fecha(r.get("sign_date"))
     uid = notice_uid(*(r.get(n) for n in ALIAS["proceso_id"]), r.get("process_url"))
-    grupo = r.get("is_group")
+    grupo = _primero(r, *ALIAS["es_grupo"])
     return {
         "id_contrato": _id_contrato(r),
         "notice_uid": uid or p.get("notice_uid"),
@@ -176,7 +190,7 @@ def contrato_a_fila(r: dict, proceso: dict | None = None) -> dict:
         "orden": norm_txt(_primero(r, "entity_order", "order")),
         "modalidad": norm_txt(r.get("modality")) or p.get("modalidad"),
         "tipo_contrato": norm_txt(r.get("contract_type")) or p.get("tipo_contrato"),
-        "unspsc": r.get("unspsc_code") or p.get("unspsc"),
+        "unspsc": unspsc(r.get("unspsc_code")) or p.get("unspsc"),
         "descripcion": (r.get("object") or r.get("description") or p.get("descripcion") or "")[:120] or None,
         "precio_base": numero(_primero(r, *ALIAS["precio_base"])) or p.get("precio_base"),
         "valor_adjudicado": valor,

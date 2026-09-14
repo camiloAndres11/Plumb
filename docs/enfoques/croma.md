@@ -39,6 +39,30 @@ Llave de organización (`croma_live_...`) creada por una persona en
 `Authorization: Bearer <llave>` en cada request. No hay registro automático para
 agentes: alguien del equipo tiene que crear la cuenta y la llave.
 
+## Medido con llave real (2026-09-13)
+
+Sonda `python -m pliego.comun.croma` más unas consultas a mano (9 créditos):
+
+- **Latencia**: las búsquedas SECOP a dataset tardan **1,5–30 s por página**, no
+  milisegundos; la primera de cada tipo es la lenta. Una llamada abandonada por
+  timeout se cobra igual si el servidor la termina. Por eso `fuente.py` cachea cada
+  búsqueda en `data/cache/croma/` (24 h) y descarga 4 en paralelo.
+- **Frescura**: `as_of` de SECOP = el mismo día a las 10:11 UTC → refresco diario.
+- **Volumen** (Santander, SECOP II, Obra): 472 procesos adjudicados desde 2025-01,
+  341 sin adjudicar desde 2026-06, 1.881 contratos en total. Con el perfil de la
+  demo (3 departamentos) el arranque en frío son ~60–100 páginas = créditos.
+- **Cuota**: `/catalog` anuncia "100 requests / 24h" por endpoint, pero la respuesta
+  real solo trae `ratelimit-policy: "credits";q=5000;w=2592000`. La cabecera manda
+  (lo dice su propia doc). Ojo si en producción aparece la diaria.
+- **Campos**: el contrato no trae `process_id` ni conteos de oferentes; el enlace es
+  el `noticeUID` de su `url`. Trae `provider_is_group`, `provider_is_sme`,
+  `legal_rep_name`, `supervisor_document`, desglose de fuentes de financiación
+  (`funding_royalties`, `funding_own_territorial`…), `pending_execution_value`. El
+  proceso SECOP II trae `notice_uid`, `bid_deadline`, `invited_providers`,
+  `interested_providers`, `unique_responding_providers`, `provider_document` del
+  adjudicatario, `phase` y `status`. SECOP I trae UNSPSC de 6 dígitos y sin
+  conteos.
+
 ## Mapa: qué endpoint alimenta cada enfoque
 
 Contraste entre las columnas de los parquet que hoy consume cada módulo
@@ -97,7 +121,7 @@ abiertos con banderas). Si Croma alimenta esas dos tablas en un DuckDB en memori
 | 1 | `pliego/comun/fuente.py`: conmutador `PLIEGO_FUENTE=croma` + `CROMA_API_KEY`; sin ellos, parquet como hasta hoy. Con Croma: trae contratos y procesos para los departamentos y tipos del perfil, arma `base` y `alertas` en memoria y corre las SQL de las semillas | hecha |
 | 1 | `datos.py` de filtro, radar y simulador leen por `fuente.filas(...)`; `hoy()` es la fecha real con Croma y la del snapshot con fixtures | hecha |
 | 1 | Pruebas con transporte falso (sin red ni llave) | hecha |
-| 2 | Crear la llave en `platform.usecroma.com`, correr la sonda y confirmar los campos que la doc no fija: el enlace contrato → proceso (`notice_uid` / url), si el contrato trae `unique_responding_providers`, y el `as_of` de SECOP | **pendiente: necesita a alguien del equipo** |
+| 2 | Llave creada, sonda corrida, campos confirmados (ver "Medido con llave real"); caché en disco y descargas en paralelo por la latencia | hecha |
 | 2 | Medir el `as_of` de SECOP durante una semana antes de escoger plan | pendiente |
 | 3 | Radar: `profile`, `sanctions-by-provider`, `modifications-search`, `supersociedades` en la ficha del competidor | pendiente |
 | 3 | Checklist: verificación en vivo de inhabilidades (Procuraduría, Contraloría, BDME) por ítem | pendiente |
@@ -112,6 +136,8 @@ abiertos con banderas). Si Croma alimenta esas dos tablas en un DuckDB en memori
 | `CROMA_API_URL` | base de la API; por defecto `https://api.croma.run` |
 | `CROMA_MAX_PAGINAS` | tope de páginas (de 100) por búsqueda; por defecto 30 |
 | `CROMA_DESDE_ANIO` | primer año del histórico a traer; por defecto hace 4 años |
+| `CROMA_CACHE_HORAS` | vigencia de la caché en disco por búsqueda; por defecto 24, `0` la desactiva |
+| `CROMA_HILOS` | búsquedas en paralelo; por defecto 4 |
 
 ### Presupuesto de créditos
 

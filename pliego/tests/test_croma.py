@@ -34,12 +34,15 @@ class Sesion:
     """Devuelve las respuestas en orden y guarda lo que se le pidio."""
 
     def __init__(self, *respuestas):
+        import threading
         self.respuestas = list(respuestas)
         self.llamadas = []
+        self._candado = threading.Lock()
 
     def post(self, url, json=None, headers=None, timeout=None):
-        self.llamadas.append((url, json, headers))
-        return self.respuestas.pop(0)
+        with self._candado:   # fuente._traer llama desde varios hilos
+            self.llamadas.append((url, json, headers))
+            return self.respuestas.pop(0)
 
 
 def cliente(*respuestas, esperas=None):
@@ -308,14 +311,15 @@ def test_departamentos_como_los_escribe_secop():
     assert F._depto_secop("Valle del Cauca") == "Valle del Cauca"
 
 
-def test_traer_consulta_por_departamento_y_tipo_con_los_filtros_correctos(monkeypatch):
+def test_traer_consulta_por_departamento_y_tipo_con_los_filtros_correctos(monkeypatch, tmp_path):
+    monkeypatch.setattr(F, "CACHE", tmp_path)
     monkeypatch.setenv("PLIEGO_FUENTE", "croma")
     monkeypatch.setenv("CROMA_API_KEY", "croma_test_x")
     monkeypatch.setenv("CROMA_DESDE_ANIO", "2023")
     respuestas = [Resp(200, pagina([])) for _ in range(2 * 3 * 3)]
     api, ses = cliente(*respuestas)
-    F._traer(api, {"departamentos_interes": ["SANTANDER", "BOYACA"]})
-    assert len(ses.llamadas) == 18
+    *_, errores = F._traer(api, {"departamentos_interes": ["SANTANDER", "BOYACA"]})
+    assert errores == [] and len(ses.llamadas) == 18
     rutas = {u.rsplit("/", 2)[-2] for u, _, _ in ses.llamadas}
     assert rutas == {"contracts-search", "processes-search"}
     cuerpos = [c for _, c, _ in ses.llamadas]
@@ -324,3 +328,70 @@ def test_traer_consulta_por_departamento_y_tipo_con_los_filtros_correctos(monkey
     assert all(c["platform"] == "secop_ii" for c in cuerpos)
     assert {c.get("awarded") for c in cuerpos} == {None, "yes", "no"}
     assert any(c.get("from_date") == "2023-01-01" for c in cuerpos)
+
+
+# ---------------------------------------------------------- campos reales
+def test_unspsc_al_formato_del_warehouse():
+    assert M.unspsc("V1.72141001") == "V1.72141001"
+    assert M.unspsc("721410") == "V1.72141000"        # SECOP I: 6 digitos
+    assert M.unspsc("UNSPECIFIED") is None and M.unspsc(None) is None
+
+
+def test_contrato_real_de_croma_enlaza_por_la_url_y_lee_provider_is_group():
+    # Forma real de un contrato SECOP II en Croma (sonda 2026-09-13): sin
+    # process_id, con el noticeUID dentro de `url` y `provider_is_group`.
+    r = {"id": "secop_ii:CO1.PCCNTR.9930859", "contract_id": "CO1.PCCNTR.9930859",
+         "entity": "ALCALDIA CIMITARRA", "entity_nit": "890208363", "entity_department": "Santander",
+         "provider": "Empresa de Desarrollo", "provider_document": "901956792", "provider_is_group": True,
+         "unspsc_code": "V1.72141001", "contract_type": "Obra", "modality": "Contratación directa",
+         "status": "En ejecución", "value": 1583841849, "sign_date": "2026-09-10",
+         "url": "https://community.secop.gov.co/Public/Tendering/OpportunityDetail/Index?noticeUID=CO1.NTC.10875302&isFromPublicArea=True"}
+    f = M.contrato_a_fila(r, None)
+    assert f["notice_uid"] == "CO1.NTC.10875302" and f["es_grupo"] == "SI"
+    assert f["unspsc"] == "V1.72141001" and f["modalidad"] == "CONTRATACION DIRECTA"
+
+
+def test_paginas_usa_el_cache_del_dia(tmp_path, monkeypatch):
+    monkeypatch.setattr(F, "CACHE", tmp_path)
+    monkeypatch.setenv("CROMA_CACHE_HORAS", "24")
+    api, ses = cliente(Resp(200, pagina([{"id": 1}])), Resp(200, pagina([{"id": 2}])))
+    assert [f["id"] for f in F._paginas(api, "/x/v1", {"a": 1})] == [1]
+    assert [f["id"] for f in F._paginas(api, "/x/v1", {"a": 1})] == [1]   # del disco, sin llamar
+    assert len(ses.llamadas) == 1
+    assert [f["id"] for f in F._paginas(api, "/x/v1", {"a": 2})] == [2]   # otra consulta, otra llave
+    assert len(list(tmp_path.glob("*.json"))) == 2
+
+
+def test_cache_desactivado_con_cero_horas(tmp_path, monkeypatch):
+    monkeypatch.setattr(F, "CACHE", tmp_path)
+    monkeypatch.setenv("CROMA_CACHE_HORAS", "0")
+    api, ses = cliente(Resp(200, pagina([{"id": 1}])), Resp(200, pagina([{"id": 1}])))
+    F._paginas(api, "/x/v1", {})
+    F._paginas(api, "/x/v1", {})
+    assert len(ses.llamadas) == 2
+
+
+def test_timeout_de_una_pagina_se_reintenta():
+    import requests
+
+    class SesionLenta(Sesion):
+        def post(self, *a, **k):
+            if len(self.llamadas) == 0:
+                self.llamadas.append(("timeout", None, None))
+                raise requests.Timeout("lenta")
+            return super().post(*a, **k)
+
+    ses = SesionLenta(Resp(200, pagina([{"id": 1}])))
+    api = C.CromaCliente(llave_api="k", base_url="https://api.test", session=ses, dormir=lambda s: None)
+    assert api.llamar("/x")["results"] == [{"id": 1}]
+    assert len(ses.llamadas) == 2
+
+
+def test_una_busqueda_fallida_no_tumba_el_arranque(monkeypatch, tmp_path):
+    monkeypatch.setattr(F, "CACHE", tmp_path)
+    monkeypatch.setenv("CROMA_HILOS", "1")
+    respuestas = [Resp(402, {"error": {"code": "billing_error"}})] + [Resp(200, pagina([{"id": i}])) for i in range(8)]
+    api, ses = cliente(*respuestas)
+    contratos, adjudicados, abiertos, errores = F._traer(api, {"departamentos_interes": ["SANTANDER"]})
+    assert len(errores) == 1 and "402" in errores[0]["error"]
+    assert len(contratos) + len(adjudicados) + len(abiertos) == 8

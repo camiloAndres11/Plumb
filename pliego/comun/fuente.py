@@ -20,7 +20,9 @@ Lo que se trae de Croma (todo a dataset, 1 credito por pagina de 100):
   - procesos sin adjudicar publicados en los ultimos 120 dias
                                                        -> `alertas`
 Con el perfil de la demo (3 departamentos x 3 tipos x 4 anios) son del
-orden de 100-300 creditos en frio; el plan Free trae 5.000 al mes.
+orden de 100-300 creditos en frio; el plan Free trae 5.000 al mes. Cada
+busqueda se cachea en data/cache/croma/ por CROMA_CACHE_HORAS (24): el
+segundo arranque del dia no gasta creditos ni espera.
 
 Banderas de `alertas` que NO se pueden calcular con Croma y quedan en NULL
 (la logica del filtro ya trata NULL como "no se sabe"): f_al_tope_minima
@@ -30,10 +32,12 @@ docs/enfoques/croma.md.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import threading
-from datetime import date, timedelta
+from concurrent.futures import ThreadPoolExecutor
+from datetime import date, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
 
@@ -47,6 +51,11 @@ RAIZ = Path(__file__).resolve().parents[1]
 FECHA_SNAPSHOT = date(2026, 8, 22)
 TIPOS_CONSTRUCCION = ("Obra", "Interventoría", "Consultoría")
 DIAS_ABIERTOS = 120   # cuan atras buscar procesos sin adjudicar
+# Cada busqueda (todas sus paginas) se guarda en disco y se reutiliza
+# mientras sea del mismo dia: SECOP en Croma se refresca a diario y una
+# pagina tarda hasta 30 s, asi que sin cache cada arranque son minutos.
+CACHE = RAIZ.parent / "data" / "cache" / "croma"
+HILOS = 4   # busquedas en paralelo; solo hay tope mensual de creditos
 
 # Croma filtra `department` "como SECOP lo escribe"; el perfil lo guarda
 # normalizado (MAYUSCULAS sin tildes). Los que no esten aqui se pasan en
@@ -222,10 +231,11 @@ def _db_cacheada():
     from pliego.comun import croma
     api = croma.CromaCliente()
     perfil = _perfil()
-    contratos, adjudicados, abiertos = _traer(api, perfil)
+    contratos, adjudicados, abiertos, errores = _traer(api, perfil)
     return _armar(contratos, adjudicados, abiertos, hoy(), meta={
         "as_of": max((p.get("_as_of") or "" for p in adjudicados + abiertos), default=None),
         "creditos_restantes": api.creditos_restantes, "llamadas": api.llamadas,
+        "errores": errores,
     })
 
 
@@ -264,33 +274,81 @@ def _armar(contratos: list[dict], adjudicados: list[dict], abiertos: list[dict],
 
 
 def _traer(api, perfil: dict):
-    """Las tres consultas por departamento y tipo. Cada registro lleva
-    `_as_of` de su pagina para saber de cuando es lo que se muestra."""
+    """Las tres consultas por departamento y tipo, en paralelo y con cache
+    en disco. Cada registro lleva `_as_of` de su pagina para saber de
+    cuando es lo que se muestra."""
     desde_anio = int(os.environ.get("CROMA_DESDE_ANIO", str(hoy().year - 4)))
     desde = f"{desde_anio}-01-01"
     desde_abiertos = (hoy() - timedelta(days=DIAS_ABIERTOS)).isoformat()
     deptos = [_depto_secop(d) for d in perfil.get("departamentos_interes") or []] or [None]
-    contratos, adjudicados, abiertos = [], [], []
+    consultas = []   # (destino, ruta, cuerpo) en el orden en que se piden
     for depto in deptos:
         comun = {"platform": "secop_ii"}
         if depto:
             comun["department"] = depto
         for tipo in TIPOS_CONSTRUCCION:
-            contratos += _paginas(api, "/co/secop/contracts-search/v1",
-                                  {**comun, "contract_type": tipo, "from_date": desde})
-            adjudicados += _paginas(api, "/co/secop/processes-search/v1",
-                                    {**comun, "contract_type": tipo, "from_date": desde, "awarded": "yes"})
-            abiertos += _paginas(api, "/co/secop/processes-search/v1",
-                                 {**comun, "contract_type": tipo, "from_date": desde_abiertos,
-                                  "awarded": "no", "sort": "recent"})
-    return contratos, adjudicados, abiertos
+            consultas += [
+                ("contratos", "/co/secop/contracts-search/v1",
+                 {**comun, "contract_type": tipo, "from_date": desde}),
+                ("adjudicados", "/co/secop/processes-search/v1",
+                 {**comun, "contract_type": tipo, "from_date": desde, "awarded": "yes"}),
+                ("abiertos", "/co/secop/processes-search/v1",
+                 {**comun, "contract_type": tipo, "from_date": desde_abiertos, "awarded": "no",
+                  "sort": "recent"}),
+            ]
+    salida = {"contratos": [], "adjudicados": [], "abiertos": []}
+    errores = []
+
+    def una(c):
+        # Una busqueda que falla (timeout persistente, 402) no tumba el
+        # arranque: se anota y se sigue con lo demas. estado() lo muestra.
+        try:
+            return _paginas(api, c[1], c[2])
+        except Exception as e:   # CromaError o lo que sea que rompa una pagina
+            errores.append({"consulta": c[2], "error": str(e)[:200]})
+            return []
+
+    with ThreadPoolExecutor(max_workers=int(os.environ.get("CROMA_HILOS", HILOS))) as pool:
+        for (destino, _, _), filas in zip(consultas, pool.map(una, consultas)):
+            salida[destino] += filas
+    return salida["contratos"], salida["adjudicados"], salida["abiertos"], errores
 
 
 def _paginas(api, ruta, cuerpo) -> list[dict]:
-    out = []
-    for fila in api.paginar(ruta, cuerpo):
-        out.append(fila)
-    return out
+    """Todas las paginas de una busqueda, del cache del dia si existe."""
+    llave = _llave_cache(ruta, cuerpo)
+    en_cache = _leer_cache(llave)
+    if en_cache is not None:
+        return en_cache
+    filas = list(api.paginar(ruta, cuerpo))
+    _escribir_cache(llave, filas)
+    return filas
+
+
+def _llave_cache(ruta, cuerpo) -> Path:
+    firma = hashlib.sha1((ruta + json.dumps(cuerpo, sort_keys=True, ensure_ascii=False)).encode()).hexdigest()[:16]
+    return CACHE / f"{ruta.strip('/').replace('/', '_')}-{firma}.json"
+
+
+def _leer_cache(llave: Path):
+    horas = float(os.environ.get("CROMA_CACHE_HORAS", "24"))
+    if horas <= 0 or not llave.exists():
+        return None
+    edad = datetime.now() - datetime.fromtimestamp(llave.stat().st_mtime)
+    if edad > timedelta(hours=horas):
+        return None
+    try:
+        return json.loads(llave.read_text(encoding="utf-8"))
+    except ValueError:
+        return None
+
+
+def _escribir_cache(llave: Path, filas: list[dict]):
+    try:
+        CACHE.mkdir(parents=True, exist_ok=True)
+        llave.write_text(json.dumps(filas, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass   # sin cache se sigue igual, solo mas lento la proxima vez
 
 
 def _depto_secop(d: str) -> str:

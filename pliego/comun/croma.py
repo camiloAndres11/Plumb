@@ -26,6 +26,18 @@ Contrato de la API (medido contra la doc oficial, docs.usecroma.com):
       viene en `X-RateLimit-Remaining` de cada respuesta y el cliente lo
       recuerda en `.creditos_restantes` para que quien lo use lo muestre.
 
+Medido el 2026-09-13 con llave real (no es lo que dice la doc):
+    - Las busquedas SECOP a dataset tardan entre 1,5 s y 30 s por pagina,
+      no milisegundos; la primera de cada tipo es la lenta. Por eso el
+      timeout es de 120 s y fuente.py cachea en disco y descarga en paralelo.
+    - Una llamada que el cliente abandona por timeout SI se cobra si el
+      servidor la termino despues (se vio en el saldo). Abandonar pronto no
+      ahorra creditos.
+    - `as_of` de SECOP fue el mismo dia a las 10:11 UTC: se refresca a diario.
+    - El catalogo (/catalog) anuncia "100 requests / 24h" por endpoint, pero
+      la respuesta real solo trae la politica mensual de creditos
+      (`ratelimit-policy: "credits";q=5000;w=2592000`). La cabecera manda.
+
 Sonda:
     python -m pliego.comun.croma
 
@@ -47,8 +59,9 @@ import requests
 
 BASE_URL_DEFAULT = "https://api.croma.run"
 POR_PAGINA_MAX = 100
-TIMEOUT = 30
+TIMEOUT = 120
 REINTENTOS_429 = 3
+REINTENTOS_TIMEOUT = 2   # una pagina SECOP a veces pasa de 120 s; la siguiente suele salir
 ESPERA_429_DEFECTO = 5  # segundos, si el 429 no trae Retry-After
 
 
@@ -102,9 +115,15 @@ class CromaCliente:
         vienen `as_of` y `results`), o el JSON entero si no hay envoltura."""
         url = self.base_url + "/" + ruta.lstrip("/")
         cabeceras = {"Authorization": "Bearer " + self.llave, "Content-Type": "application/json"}
-        for intento in range(REINTENTOS_429 + 1):
+        timeouts = 0
+        for intento in range(REINTENTOS_429 + REINTENTOS_TIMEOUT + 1):
             try:
                 r = self.session.post(url, json=cuerpo or {}, headers=cabeceras, timeout=TIMEOUT)
+            except requests.Timeout as e:
+                timeouts += 1
+                if timeouts > REINTENTOS_TIMEOUT:
+                    raise CromaError("timeout persistente en %s: %s" % (ruta, e), codigo="timeout") from e
+                continue
             except requests.RequestException as e:
                 raise CromaError("no se pudo llamar a %s: %s" % (ruta, e)) from e
             self.llamadas += 1
