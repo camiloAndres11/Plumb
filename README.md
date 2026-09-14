@@ -85,7 +85,8 @@ ruff check .
 | `DATABASE_URL`, `SECRET_KEY`, `BASE_URL`, `SMTP_URL`, `PLATAFORMA_ADMINS`, `PLATAFORMA_DATOS` | la plataforma |
 | `ANTHROPIC_API_KEY` | extracción de pliegos con Claude |
 
-Todas documentadas en `.env.example`.
+Todas documentadas en `.env.example` y definidas en `pliego/comun/config.py` (base) y
+`plataforma/config.py` (lo de la plataforma). Se leen una sola vez al arrancar.
 
 ## Flujo de trabajo
 

@@ -1,6 +1,6 @@
 """El warehouse de la plataforma: un DuckDB EN DISCO con SECOP por departamento.
 
-    data/warehouse/pliego.duckdb   (o PLIEGO_WAREHOUSE / PLATAFORMA_DATOS)
+    $PLATAFORMA_DATOS/warehouse/pliego.duckdb   (o PLIEGO_WAREHOUSE; ver pliego/comun/config.py)
 
 Tablas fisicas, todas con `departamento_descarga` (el departamento cuya
 descarga trajo la fila) y `descargado_en`:
@@ -24,7 +24,6 @@ por eso la plataforma corre con --workers 1 (ver plataforma/Dockerfile).
 """
 from __future__ import annotations
 
-import os
 import threading
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -32,6 +31,7 @@ from pathlib import Path
 import duckdb
 import pyarrow as pa
 
+from pliego.comun import config as CFG
 from pliego.comun import fuente as F
 
 _con: duckdb.DuckDBPyConnection | None = None
@@ -40,9 +40,7 @@ _version = 0   # sube con cada escritura; pliego/comun/cache.py lo usa como llav
 
 
 def ruta() -> Path:
-    if os.environ.get("PLIEGO_WAREHOUSE"):
-        return Path(os.environ["PLIEGO_WAREHOUSE"])
-    return Path(os.environ.get("PLATAFORMA_DATOS", str(F.RAIZ.parent / "data"))) / "warehouse" / "pliego.duckdb"
+    return CFG.actual().warehouse
 
 
 def _extra(esquema: pa.Schema) -> pa.Schema:

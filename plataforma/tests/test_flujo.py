@@ -1,7 +1,7 @@
 """Recorrido completo de cuentas contra un Postgres real.
 
-Se salta si no hay PLATAFORMA_TEST_DATABASE_URL (o DATABASE_URL) en el
-entorno. Usa la base tal cual (esquema `pliego`), con correos y NITs
+Se salta si no hay PLATAFORMA_TEST_DATABASE_URL en el entorno ni
+DATABASE_URL en la configuracion (.env). Usa la base tal cual (esquema `pliego`), con correos y NITs
 unicos por corrida, y borra lo que creo al final. Los correos salen por el
 backend de consola (correo.enviados), de donde se leen los enlaces.
 """
@@ -13,27 +13,22 @@ import uuid
 
 import pytest
 
-from pliego.comun import entorno  # noqa: F401  (carga .env: DATABASE_URL local)
+from plataforma import config as C
 
-DSN = os.environ.get("PLATAFORMA_TEST_DATABASE_URL") or os.environ.get("DATABASE_URL")
+DSN = os.environ.get("PLATAFORMA_TEST_DATABASE_URL") or C.config.dsn
 pytestmark = pytest.mark.skipif(not DSN, reason="sin Postgres de pruebas (PLATAFORMA_TEST_DATABASE_URL)")
 
 
 @pytest.fixture(scope="module")
 def cliente(tmp_path_factory):
-    os.environ["DATABASE_URL"] = DSN
-    os.environ.setdefault("SECRET_KEY", "clave-de-pruebas-" + "x" * 40)
-    os.environ["SMTP_URL"] = ""
-    # Antes de que arranque el lifespan (que lanza los trabajos): sin llave
-    # de Croma y con warehouse temporal, para no tocar la red ni el real.
-    os.environ.pop("CROMA_API_KEY", None)
-    os.environ["PLIEGO_WAREHOUSE"] = str(tmp_path_factory.mktemp("wh") / "wh.duckdb")
+    # Se muta la configuracion viva (no se reemplaza): los modulos ya la
+    # tienen. Sin llave de Croma y con warehouse temporal, para que el
+    # lifespan (que lanza los trabajos) no toque la red ni el real.
+    C.config.database_url, C.config.smtp_url, C.config.croma_api_key = DSN, "", ""
+    C.config.secret_key = C.config.secret_key or "clave-de-pruebas-" + "x" * 40
+    C.config.pliego_warehouse = tmp_path_factory.mktemp("wh") / "wh.duckdb"
     from fastapi.testclient import TestClient
 
-    from plataforma import config as C
-    # Se muta el objeto (no se reemplaza): los modulos ya lo importaron.
-    C.config.database_url, C.config.smtp_url = DSN, ""
-    C.config.secret_key = os.environ["SECRET_KEY"]
     from plataforma import migrar
     migrar.migrar(DSN, salida=open(os.devnull, "w"))
     from plataforma.app import app

@@ -8,11 +8,11 @@ esas tablas y devuelven las columnas que cada datos.py espera.
 """
 from __future__ import annotations
 
-import os
 from datetime import date
 
 import pytest
 
+from pliego.comun import config as CFG
 from pliego.comun import croma as C
 from pliego.comun import fuente as F
 from pliego.comun import mapeo_croma as M
@@ -59,7 +59,7 @@ def pagina(filas, total_paginas=1, as_of="2026-09-12T05:00:00Z"):
 
 # ------------------------------------------------------------------ cliente
 def test_sin_llave_no_arranca(monkeypatch):
-    monkeypatch.delenv("CROMA_API_KEY", raising=False)
+    monkeypatch.setattr(CFG.actual(), "croma_api_key", "")
     assert not C.disponible()
     with pytest.raises(C.ClaveInvalida):
         C.CromaCliente()
@@ -288,20 +288,20 @@ def test_las_sql_de_las_semillas_corren_sobre_las_tablas_de_croma(monkeypatch):
 
 # --------------------------------------------------------------- conmutador
 def test_sin_pedirlo_la_fuente_son_los_fixtures(monkeypatch):
-    monkeypatch.delenv("PLIEGO_FUENTE", raising=False)
-    monkeypatch.setenv("CROMA_API_KEY", "croma_test_x")
+    monkeypatch.setattr(CFG.actual(), "pliego_fuente", "")
+    monkeypatch.setattr(CFG.actual(), "croma_api_key", "croma_test_x")
     assert F.activa() == "fixtures" and F.hoy() == F.FECHA_SNAPSHOT
 
 
 def test_pedirlo_sin_llave_cae_a_fixtures(monkeypatch):
-    monkeypatch.setenv("PLIEGO_FUENTE", "croma")
-    monkeypatch.delenv("CROMA_API_KEY", raising=False)
+    monkeypatch.setattr(CFG.actual(), "pliego_fuente", "croma")
+    monkeypatch.setattr(CFG.actual(), "croma_api_key", "")
     assert F.activa() == "fixtures"
 
 
 def test_con_llave_y_pedido_es_croma(monkeypatch):
-    monkeypatch.setenv("PLIEGO_FUENTE", "croma")
-    monkeypatch.setenv("CROMA_API_KEY", "croma_test_x")
+    monkeypatch.setattr(CFG.actual(), "pliego_fuente", "croma")
+    monkeypatch.setattr(CFG.actual(), "croma_api_key", "croma_test_x")
     assert F.activa() == "croma" and F.hoy() == date.today()
 
 
@@ -313,10 +313,9 @@ def test_departamentos_como_los_escribe_secop():
 
 
 def test_traer_consulta_por_departamento_y_tipo_con_los_filtros_correctos(monkeypatch, tmp_path):
-    monkeypatch.setattr(F, "CACHE", tmp_path)
-    monkeypatch.setenv("PLIEGO_FUENTE", "croma")
-    monkeypatch.setenv("CROMA_API_KEY", "croma_test_x")
-    monkeypatch.setenv("CROMA_DESDE_ANIO", "2023")
+    monkeypatch.setattr(CFG.actual(), "pliego_fuente", "croma")
+    monkeypatch.setattr(CFG.actual(), "croma_api_key", "croma_test_x")
+    monkeypatch.setattr(CFG.actual(), "croma_desde_anio", 2023)
     respuestas = [Resp(200, pagina([])) for _ in range(2 * 3 * 3)]
     api, ses = cliente(*respuestas)
     *_, errores = F._traer(api, {"departamentos_interes": ["SANTANDER", "BOYACA"]})
@@ -353,19 +352,17 @@ def test_contrato_real_de_croma_enlaza_por_la_url_y_lee_provider_is_group():
 
 
 def test_paginas_usa_el_cache_del_dia(tmp_path, monkeypatch):
-    monkeypatch.setattr(F, "CACHE", tmp_path)
-    monkeypatch.setenv("CROMA_CACHE_HORAS", "24")
+    monkeypatch.setattr(CFG.actual(), "croma_cache_horas", 24)
     api, ses = cliente(Resp(200, pagina([{"id": 1}])), Resp(200, pagina([{"id": 2}])))
     assert [f["id"] for f in F._paginas(api, "/x/v1", {"a": 1})] == [1]
     assert [f["id"] for f in F._paginas(api, "/x/v1", {"a": 1})] == [1]   # del disco, sin llamar
     assert len(ses.llamadas) == 1
     assert [f["id"] for f in F._paginas(api, "/x/v1", {"a": 2})] == [2]   # otra consulta, otra llave
-    assert len(list(tmp_path.glob("*.json"))) == 2
+    assert len(list(CFG.actual().cache_croma.glob("*.json"))) == 2
 
 
 def test_cache_desactivado_con_cero_horas(tmp_path, monkeypatch):
-    monkeypatch.setattr(F, "CACHE", tmp_path)
-    monkeypatch.setenv("CROMA_CACHE_HORAS", "0")
+    monkeypatch.setattr(CFG.actual(), "croma_cache_horas", 0)
     api, ses = cliente(Resp(200, pagina([{"id": 1}])), Resp(200, pagina([{"id": 1}])))
     F._paginas(api, "/x/v1", {})
     F._paginas(api, "/x/v1", {})
@@ -389,24 +386,9 @@ def test_timeout_de_una_pagina_se_reintenta():
 
 
 def test_una_busqueda_fallida_no_tumba_el_arranque(monkeypatch, tmp_path):
-    monkeypatch.setattr(F, "CACHE", tmp_path)
-    monkeypatch.setenv("CROMA_HILOS", "1")
+    monkeypatch.setattr(CFG.actual(), "croma_hilos", 1)
     respuestas = [Resp(402, {"error": {"code": "billing_error"}})] + [Resp(200, pagina([{"id": i}])) for i in range(8)]
     api, ses = cliente(*respuestas)
     contratos, adjudicados, abiertos, errores = F._traer(api, {"departamentos_interes": ["SANTANDER"]})
     assert len(errores) == 1 and "402" in errores[0]["error"]
     assert len(contratos) + len(adjudicados) + len(abiertos) == 8
-
-
-def test_entorno_carga_el_env_sin_pisar_lo_existente(tmp_path, monkeypatch):
-    from pliego.comun import entorno
-    archivo = tmp_path / ".env"
-    archivo.write_text("# comentario\nPRUEBA_A=uno\nPRUEBA_B='dos'\nPRUEBA_C=\nsin_igual\n", encoding="utf-8")
-    monkeypatch.setenv("PRUEBA_B", "ya-estaba")
-    monkeypatch.delenv("PRUEBA_A", raising=False)
-    monkeypatch.delenv("PRUEBA_C", raising=False)
-    cargado = entorno.cargar(archivo)
-    assert cargado == {"PRUEBA_A": "uno"}
-    assert os.environ["PRUEBA_A"] == "uno" and os.environ["PRUEBA_B"] == "ya-estaba"
-    assert "PRUEBA_C" not in os.environ
-    monkeypatch.delenv("PRUEBA_A")

@@ -11,6 +11,7 @@ from datetime import date
 
 import pytest
 
+from plataforma import config as C
 from pliego.comun import cache, contexto, croma
 from pliego.comun import fuente as F
 from pliego.tests import test_croma as T
@@ -20,9 +21,9 @@ from pliego.tests import test_croma as T
 def wh(tmp_path, monkeypatch):
     from pliego.comun import warehouse as W
     W.cerrar()
-    monkeypatch.setenv("PLIEGO_WAREHOUSE", str(tmp_path / "wh.duckdb"))
-    monkeypatch.setenv("PLIEGO_FUENTE", "warehouse")
-    monkeypatch.setattr(F, "CACHE", tmp_path / "cache")
+    monkeypatch.setattr(C.config, "pliego_warehouse", tmp_path / "wh.duckdb")
+    monkeypatch.setattr(C.config, "pliego_fuente", "warehouse")
+    monkeypatch.setattr(C.config, "plataforma_datos", tmp_path)
     yield W
     W.cerrar()
 
@@ -105,17 +106,16 @@ def test_alertas_usan_la_fecha_de_hoy(wh):
     assert all(f["universo"] == "accionable" and f["dias_restantes"] >= 0 for f in filas)
 
 
-DSN = os.environ.get("PLATAFORMA_TEST_DATABASE_URL") or os.environ.get("DATABASE_URL")
+DSN = os.environ.get("PLATAFORMA_TEST_DATABASE_URL") or C.config.dsn
 
 
 @pytest.mark.skipif(not DSN, reason="sin Postgres de pruebas")
 def test_descargar_departamento_escribe_warehouse_y_estado(wh, monkeypatch):
-    from plataforma import config as C
     from plataforma import db, migrar, trabajos
     C.config.database_url = DSN
     migrar.migrar(DSN, salida=open(os.devnull, "w"))
     db.ejecutar("DELETE FROM pliego.descargas_departamento WHERE departamento = 'VAUPES'")
-    monkeypatch.setenv("CROMA_HILOS", "1")   # la sesion falsa responde en orden
+    monkeypatch.setattr(C.config, "croma_hilos", 1)   # la sesion falsa responde en orden
     c, a, o = _lote(1, 5)
     respuestas = []
     for _ in range(3):   # 3 tipos x (contratos, adjudicados, abiertos)
@@ -145,7 +145,6 @@ def test_los_enfoques_bajo_app_exigen_sesion_perfil_y_datos(wh, monkeypatch):
 
     from fastapi.testclient import TestClient
 
-    from plataforma import config as C
     from plataforma import db, migrar
     C.config.database_url, C.config.smtp_url = DSN, ""
     C.config.secret_key = C.config.secret_key or "clave-de-pruebas-" + "x" * 40

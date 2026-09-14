@@ -9,8 +9,8 @@ enfoque es la de siempre y ni logica.py ni app.py se enteran del cambio.
 
     PLIEGO_FUENTE=croma CROMA_API_KEY=croma_live_... uvicorn demo.app:app
 
-o las mismas dos variables en el `.env` de la raiz (ver .env.example; lo
-carga pliego/comun/entorno.py). Sin ellas se leen los parquet commiteados.
+o las mismas dos variables en el `.env` de la raiz (ver .env.example; las
+lee pliego/comun/config.py). Sin ellas se leen los parquet commiteados.
 
 Tres modos (activa()):
   fixtures   los parquet de pliego/*/fixtures/ (la demo, las pruebas)
@@ -29,8 +29,8 @@ Lo que se trae de Croma (todo a dataset, 1 credito por pagina de 100):
                                                        -> `alertas`
 Con el perfil de la demo (3 departamentos x 3 tipos x 4 anios) son del
 orden de 100-300 creditos en frio; el plan Free trae 5.000 al mes. Cada
-busqueda se cachea en data/cache/croma/ por CROMA_CACHE_HORAS (24): el
-segundo arranque del dia no gasta creditos ni espera.
+busqueda se cachea en $PLATAFORMA_DATOS/cache/croma/ por CROMA_CACHE_HORAS
+(24): el segundo arranque del dia no gasta creditos ni espera.
 
 Banderas de `alertas` que NO se pueden calcular con Croma y quedan en NULL
 (la logica del filtro ya trata NULL como "no se sabe"): f_al_tope_minima
@@ -42,7 +42,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta
@@ -52,7 +51,7 @@ from pathlib import Path
 import duckdb
 import pyarrow as pa
 
-from pliego.comun import entorno  # noqa: F401  (carga .env al importar)
+from pliego.comun import config as CFG
 from pliego.comun import mapeo_croma as M
 
 RAIZ = Path(__file__).resolve().parents[1]
@@ -60,11 +59,10 @@ RAIZ = Path(__file__).resolve().parents[1]
 FECHA_SNAPSHOT = date(2026, 8, 22)
 TIPOS_CONSTRUCCION = ("Obra", "Interventoría", "Consultoría")
 DIAS_ABIERTOS = 120   # cuan atras buscar procesos sin adjudicar
-# Cada busqueda (todas sus paginas) se guarda en disco y se reutiliza
-# mientras sea del mismo dia: SECOP en Croma se refresca a diario y una
-# pagina tarda hasta 30 s, asi que sin cache cada arranque son minutos.
-CACHE = RAIZ.parent / "data" / "cache" / "croma"
-HILOS = 4   # busquedas en paralelo; solo hay tope mensual de creditos
+# Cada busqueda (todas sus paginas) se guarda en disco (config.cache_croma)
+# y se reutiliza mientras sea del mismo dia: SECOP en Croma se refresca a
+# diario y una pagina tarda hasta 30 s, asi que sin cache cada arranque son
+# minutos.
 
 # Croma filtra `department` "como SECOP lo escribe"; el perfil lo guarda
 # normalizado (MAYUSCULAS sin tildes). Los que no esten aqui se pasan en
@@ -84,7 +82,7 @@ def activa() -> str:
     """'croma' si se pidio y hay llave; 'warehouse' si se pidio y hay una
     empresa en contexto (sin contexto, p. ej. en pruebas, caen los fixtures);
     'fixtures' en cualquier otro caso."""
-    modo = os.environ.get("PLIEGO_FUENTE", "").strip().lower()
+    modo = CFG.actual().pliego_fuente
     if modo == "croma":
         from pliego.comun import croma
         if croma.disponible():
@@ -321,7 +319,7 @@ def consultas_para(departamentos, desde: str | None = None, desde_abiertos: str 
     Con departamentos vacio consulta todo el pais (caro: no lo hace nadie
     por defecto)."""
     if desde is None:
-        desde = f"{int(os.environ.get('CROMA_DESDE_ANIO', str(hoy().year - 4)))}-01-01"
+        desde = f"{CFG.actual().croma_desde_anio or hoy().year - 4}-01-01"
     if desde_abiertos is None:
         desde_abiertos = (hoy() - timedelta(days=DIAS_ABIERTOS)).isoformat()
     deptos = [_depto_secop(d) for d in departamentos] or [None]
@@ -359,7 +357,7 @@ def traer(api, consultas: list[tuple]):
             errores.append({"consulta": c[2], "error": str(e)[:200]})
             return []
 
-    with ThreadPoolExecutor(max_workers=int(os.environ.get("CROMA_HILOS", HILOS))) as pool:
+    with ThreadPoolExecutor(max_workers=max(1, CFG.actual().croma_hilos)) as pool:
         for (destino, _, _), filas in zip(consultas, pool.map(una, consultas)):
             salida[destino] += filas
     return salida["contratos"], salida["adjudicados"], salida["abiertos"], errores
@@ -383,11 +381,11 @@ def _paginas(api, ruta, cuerpo) -> list[dict]:
 
 def _llave_cache(ruta, cuerpo) -> Path:
     firma = hashlib.sha1((ruta + json.dumps(cuerpo, sort_keys=True, ensure_ascii=False)).encode()).hexdigest()[:16]
-    return CACHE / f"{ruta.strip('/').replace('/', '_')}-{firma}.json"
+    return CFG.actual().cache_croma / f"{ruta.strip('/').replace('/', '_')}-{firma}.json"
 
 
 def _leer_cache(llave: Path):
-    horas = float(os.environ.get("CROMA_CACHE_HORAS", "24"))
+    horas = float(CFG.actual().croma_cache_horas)
     if horas <= 0 or not llave.exists():
         return None
     edad = datetime.now() - datetime.fromtimestamp(llave.stat().st_mtime)
@@ -401,7 +399,7 @@ def _leer_cache(llave: Path):
 
 def _escribir_cache(llave: Path, filas: list[dict]):
     try:
-        CACHE.mkdir(parents=True, exist_ok=True)
+        llave.parent.mkdir(parents=True, exist_ok=True)
         llave.write_text(json.dumps(filas, ensure_ascii=False), encoding="utf-8")
     except OSError:
         pass   # sin cache se sigue igual, solo mas lento la proxima vez

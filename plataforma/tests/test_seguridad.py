@@ -101,3 +101,19 @@ def test_los_correos_escapan_lo_que_escribe_el_usuario(monkeypatch):
     assert "<a href=\"https://phishing\">" not in m["html"] and "&lt;a href=" in m["html"]
     assert "\r" not in m["asunto"] and "\n" not in m["asunto"]
     correo.enviados.clear()
+
+
+def test_solo_config_lee_el_entorno():
+    """Un solo punto de configuracion: ningun modulo de pliego/, plataforma/
+    o demo/ lee os.environ salvo pliego/comun/config.py (y las pruebas)."""
+    import re
+    from pathlib import Path
+    raiz = Path(__file__).resolve().parents[2]
+    culpables = []
+    for paquete in ("pliego", "plataforma", "demo"):
+        for f in (raiz / paquete).rglob("*.py"):
+            if "tests" in f.parts or f.name == "config.py":
+                continue
+            if re.search(r"os\.(environ|getenv)\b", f.read_text(encoding="utf-8")):
+                culpables.append(str(f.relative_to(raiz)))
+    assert culpables == [], culpables
