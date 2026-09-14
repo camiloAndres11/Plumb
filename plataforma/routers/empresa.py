@@ -6,10 +6,31 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse
 
-from plataforma import cuentas, seguridad, sesiones
+from plataforma import cuentas, db, seguridad, sesiones
 from plataforma import vistas as V
 
 router = APIRouter()
+
+
+@router.get("/empresa/datos", response_class=HTMLResponse)
+def datos(request: Request, usuario: dict = Depends(sesiones.requiere_sesion)):
+    """Estado de los datos de Croma por departamento de la empresa."""
+    empresa = request.state.empresa
+    if not empresa["departamentos"]:
+        return sesiones.redirigir("/empresa/perfil/1?error=" + quote("Primero diga en qué departamentos licita."))
+    estados = {d["departamento"]: d for d in db.todos(
+        "SELECT * FROM pliego.descargas_departamento WHERE departamento = ANY(%s)", [empresa["departamentos"]])}
+    filas = ""
+    for dep in empresa["departamentos"]:
+        e = estados.get(dep) or {"estado": "pendiente", "as_of": None, "paginas": 0, "error": None}
+        filas += (f'<tr><td>{V.h(dep.title())}</td><td><span class="estado {e["estado"]}">{V.h(e["estado"])}</span></td>'
+                  f'<td>{_fecha(e.get("as_of"))}</td><td>{e.get("paginas") or 0}</td><td>{V.h(e.get("error") or "")}</td></tr>')
+    listas = sum(1 for d in empresa["departamentos"] if (estados.get(d) or {}).get("estado") == "lista")
+    cuerpo = (V.cabecera("Empresa", "Datos", f"{listas} de {len(empresa['departamentos'])} departamentos listos.")
+              + V.mensajes(ok=request.query_params.get("ok"), error=request.query_params.get("error"), clase="msg")
+              + f'<div class="card"><table class="tabla"><tr><th>Departamento</th><th>Estado</th><th>Datos al</th><th>Páginas</th><th></th></tr>{filas}</table>'
+                f'<p class="mute" style="font-size:13px;margin-top:12px">La descarga desde Croma empieza sola y se refresca a diario. Los enfoques se abren cuando al menos un departamento esté listo.</p></div>')
+    return V.privada("Datos", cuerpo, "/empresa/datos", usuario, empresa, sesiones.token_csrf(request))
 
 
 def _fecha(d) -> str:
