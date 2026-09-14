@@ -13,9 +13,9 @@ import json
 import sys
 from pathlib import Path
 
+import data as D  # plomada/ esta en pythonpath (pyproject.toml)
+
 RAIZ = Path(__file__).parent.parent
-sys.path.insert(0, str(RAIZ / "plomada"))
-import data as D  # noqa: E402
 
 CASOS = json.loads((RAIZ / "tests" / "formato_casos.json").read_text(encoding="utf-8"))
 

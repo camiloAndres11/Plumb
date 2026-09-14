@@ -4,8 +4,6 @@ duckdb>=1.4,<2
 requests>=2.32,<3
 pandas>=2.2,<3
 scikit-learn>=1.5,<2
-# networkx 3.3 exige Python >=3.10. Se fija <3.3 porque el entorno local
-# del lider es 3.9; en Docker (3.11) tambien funciona.
-networkx>=3.2,<3.3
+networkx>=3.2,<4
 rapidfuzz>=3.9,<4
 pyarrow>=17

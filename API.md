@@ -599,7 +599,7 @@ es el aporte del proyecto.
 
 ```bash
 # 1. Datos (~4 min de ingesta la primera vez)
-pip install -r requirements-dev.txt
+uv sync --extra legacy --extra dev   # o: pip install -e ".[legacy,dev]"
 python pipeline/ingest.py
 python pipeline/build.py --steps 01 02 03 04 05 --no-export
 python pipeline/grafo.py
@@ -630,9 +630,9 @@ Pruebas:
 
 ```bash
 python -m pytest tests/            # puertas de calidad de los datos
-pip install -r api/requirements-dev.txt
+uv sync --extra legacy --extra dev
 python -m pytest api/tests/        # contrato del API, sin Postgres
-python api/app/mcp/test_smoke.py   # tools MCP contra un Postgres real
+python api/app/mcp/humo_mcp.py   # tools MCP contra un Postgres real
 ```
 
 ### Variables de entorno

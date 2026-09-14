@@ -14,7 +14,7 @@ certificado) del que solo se puede decir que pedir; NO APLICA se explica.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import date, timedelta
 
 LISTO, CON_FALTANTES, ADJUNTAR, NO_APLICA = "listo", "con_faltantes", "adjuntar", "no_aplica"

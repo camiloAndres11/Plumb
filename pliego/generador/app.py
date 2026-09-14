@@ -20,7 +20,8 @@ from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, Res
 from fastapi.staticfiles import StaticFiles
 
 from pliego.comun import web as W
-from pliego.generador import datos, logica as L
+from pliego.generador import datos
+from pliego.generador import logica as L
 
 app = FastAPI(title="Pliego · Generador de propuesta", version="0.1.0")
 app.mount("/static", StaticFiles(directory=str(W.STATIC)), name="static")

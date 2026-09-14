@@ -55,7 +55,7 @@ services:
       # esta dormido, la primera respuesta tarda: el cliente ya reintenta con
       # backoff y un timeout de 60 s en la primera llamada.
       - key: PYTHON_VERSION
-        value: "3.11"
+        value: "3.12"
 
     routes:
       # Rutas dinamicas -> su shell. `rewrite` conserva la URL en la barra

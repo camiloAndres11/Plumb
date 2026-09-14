@@ -8,9 +8,9 @@ Necesita un Postgres cargado:
     python pipeline/load_postgres.py
 
     python -m venv .venv-mcp && .venv-mcp/bin/pip install -r api/requirements.txt
-    .venv-mcp/bin/python api/app/mcp/test_smoke.py           # via stdio
+    .venv-mcp/bin/python api/app/mcp/humo_mcp.py           # via stdio
     .venv-mcp/bin/python -m app.mcp.server --http &          # via http (desde api/)
-    .venv-mcp/bin/python api/app/mcp/test_smoke.py --http
+    .venv-mcp/bin/python api/app/mcp/humo_mcp.py --http
 """
 from __future__ import annotations
 

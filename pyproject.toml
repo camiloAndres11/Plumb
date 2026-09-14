@@ -1,0 +1,93 @@
+# Un solo proyecto para Pliego: el nucleo (pliego/), la plataforma
+# (plataforma/) y la demo (demo/). Plomada (pipeline/, api/, plomada/) es
+# legado: conserva sus requirements.txt propios y entra aqui solo como el
+# extra `legacy`, para que su CI y sus tests sigan corriendo.
+#
+#   uv sync --extra plataforma --extra dev        # instalar (usa uv.lock)
+#   pip install -e ".[plataforma,dev]"            # sin uv
+#   python -m pytest                              # todos los tests (ver testpaths)
+#   ruff check .
+[project]
+name = "pliego"
+version = "0.1.0"
+description = "Pliego: a que procesos del SECOP presentarse, con que precio y que le falta a la empresa para quedar habilitada."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Codigo y metodologia abiertos" }
+dependencies = [
+    "fastapi>=0.115,<1",
+    "uvicorn[standard]>=0.32,<1",
+    "pydantic>=2.9,<3",
+    "pydantic-settings>=2.6,<3",
+    "duckdb>=1.4,<2",
+    "pyarrow>=17,<26",
+    "requests>=2.32,<3",
+    "jinja2>=3.1,<4",
+]
+
+[project.optional-dependencies]
+# La plataforma para empresas (cuentas, Postgres, pliegos con Claude).
+plataforma = [
+    "psycopg[binary,pool]>=3.2,<4",
+    "argon2-cffi>=23,<26",
+    "itsdangerous>=2.2,<3",
+    "python-multipart>=0.0.12,<1",
+    "anthropic>=0.68,<1",
+]
+# Plomada (legado): pipeline analitico + API/MCP. Solo para correr sus tests
+# desde la raiz; sus Dockerfiles siguen usando sus requirements.txt.
+legacy = [
+    "psycopg[binary,pool]>=3.2,<4",
+    "anthropic>=0.68,<1",
+    "mcp>=2.0,<3",
+    "pandas>=2.2,<3",
+    "scikit-learn>=1.5,<2",
+    "networkx>=3.2,<4",
+    "rapidfuzz>=3.9,<4",
+]
+dev = [
+    "pytest>=8",
+    "httpx>=0.27",
+    "ruff>=0.7",
+    "pip-audit>=2.7",
+]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["pliego*", "plataforma*", "demo*"]
+
+[tool.pytest.ini_options]
+testpaths = ["pliego/tests", "plataforma/tests", "tests", "api/tests"]
+# Los paquetes reales (pliego, plataforma, demo) se importan desde la raiz;
+# api/, pipeline/ y plomada/ son legado con imports planos (from app...,
+# import soda, import data) y entran por ruta, sin hacks de sys.path en
+# los tests. plomada va antes que pipeline: los dos tienen build.py y el
+# que importan las pruebas es el del sitio.
+pythonpath = [".", "api", "plomada", "pipeline"]
+addopts = "-p no:cacheprovider"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 140
+extend-exclude = ["venv", "plomada/.venv", "frontend/node_modules", "out", "out_web", "data", "plomada/site"]
+
+[tool.ruff.lint]
+# E4/E7/E9/F es lo que ya exigia el CI; I ordena imports y UP moderniza
+# sintaxis (ambos con --fix); B son errores probables. plomada/ es legado y
+# se queda con el minimo de antes.
+select = ["E4", "E7", "E9", "F", "I", "UP", "B"]
+ignore = ["B008", "B904", "B905", "E731", "E741", "UP015", "UP031"]
+
+[tool.ruff.lint.per-file-ignores]
+"plomada/**" = ["E4", "E7", "I", "UP", "B"]
+"pipeline/**" = ["I", "UP", "B"]
+"api/**" = ["I", "UP", "B"]
+"tests/**" = ["I", "UP", "B"]
+"design/**" = ["E4", "E7", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["pliego", "plataforma", "demo"]

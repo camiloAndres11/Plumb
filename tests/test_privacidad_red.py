@@ -13,9 +13,9 @@ import re
 import sys
 from pathlib import Path
 
+import export_web as E  # pipeline/ esta en pythonpath (pyproject.toml); duckdb se importa dentro de main()
+
 RAIZ = Path(__file__).parent.parent
-sys.path.insert(0, str(RAIZ / "pipeline"))
-import export_web as E  # noqa: E402  (import perezoso de duckdb dentro de main(): esto no lo toca)
 
 fallos = []
 

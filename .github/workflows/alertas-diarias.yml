@@ -13,9 +13,10 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.11" }
-      - run: pip install -r requirements-dev.txt
+      - uses: astral-sh/setup-uv@v6
+        with: { enable-cache: true }
+      - run: uv python install 3.12
+      - run: uv sync --frozen --extra legacy --extra dev
 
       - name: semana en curso (para el cache del nucleo)
         id: semana
@@ -40,10 +41,10 @@ jobs:
       - name: ingesta + build del nucleo (solo si no hay cache de esta semana)
         if: steps.cache-nucleo.outputs.cache-hit != 'true'
         run: |
-          python pipeline/ingest.py
-          python pipeline/build.py --steps 01 02 03 04 05 --no-export
-          python pipeline/grafo.py
-          python pipeline/build.py --all
+          uv run python pipeline/ingest.py
+          uv run python pipeline/build.py --steps 01 02 03 04 05 --no-export
+          uv run python pipeline/grafo.py
+          uv run python pipeline/build.py --all
 
       # Los snapshots de abiertos se acumulan para siempre (nunca se borran:
       # alertas.py necesita el de ayer para la bandera de addenda). Las
@@ -59,9 +60,9 @@ jobs:
 
       - name: snapshot de hoy + alertas + export
         run: |
-          python pipeline/ingest_abiertos.py
-          python pipeline/alertas.py
-          python pipeline/export_web.py
+          uv run python pipeline/ingest_abiertos.py
+          uv run python pipeline/alertas.py
+          uv run python pipeline/export_web.py
 
       # No hay hosting configurado todavia (deploy-url sigue sin llenar en
       # platanus-hack-project.jsonc): el tablero se sirve local, asi que

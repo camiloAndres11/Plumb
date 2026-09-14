@@ -18,7 +18,7 @@ Lo que verifica, en orden de gravedad:
      static/vendor/islas/ no trae una URL externa (salvo arcgisonline.com,
      ya documentada); y el bundle corresponde al hash de sus fuentes.
 """
-import csv, hashlib, html, json, re, sys
+import hashlib, html, json, re, sys
 from pathlib import Path
 
 import build

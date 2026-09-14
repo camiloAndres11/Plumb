@@ -1,52 +1,88 @@
 name: ci
 on: [push, pull_request]
 
+env:
+  PYTHON_VERSION: "3.12"
+
 jobs:
-  calidad:
+  # ---------------------------------------------------------------- Pliego
+  # El producto: pliego/ (enfoques), plataforma/ (SaaS) y demo/. Lint de TODO
+  # el repo y los tests de los dos paquetes; plataforma/tests necesita un
+  # Postgres real (el esquema es lo que se prueba), asi que se levanta uno.
+  pliego:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: plomada, POSTGRES_PASSWORD: plomada, POSTGRES_DB: plomada }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U plomada" --health-interval 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with: { enable-cache: true }
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends poppler-utils
+      - run: uv sync --frozen --extra plataforma --extra legacy --extra dev
+      - run: uv run ruff check .
+      - name: migraciones + tests de pliego y plataforma
+        env:
+          DATABASE_URL: postgresql://plomada:plomada@127.0.0.1:5432/plomada
+          SECRET_KEY: clave-de-ci-solo-para-pruebas-xxxxxxxxxxxxxxxxxxxxxxxx
+          PLATAFORMA_DATOS: ${{ runner.temp }}/datos
+        run: |
+          uv run python -m plataforma.migrar
+          uv run python -m pytest pliego/tests plataforma/tests -v
+
+  # --------------------------------------------------------------- Plomada
+  # Legado en produccion: los mismos pasos de siempre, sin refactorizar.
+  legacy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.11" }
-      - run: pip install -r requirements-dev.txt
-      - run: ruff check pipeline api tests
+      - uses: astral-sh/setup-uv@v6
+        with: { enable-cache: true }
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+      - run: uv sync --frozen --extra legacy --extra dev
       # La ingesta completa tarda ~4 min y golpea datos.gov.co. En CI se
       # corre solo en main, no en cada PR, para no maltratar la API publica.
       - name: ingesta + build + puertas de calidad
         if: github.ref == 'refs/heads/main'
         run: |
-          python pipeline/ingest.py
-          python pipeline/build.py --steps 01 02 03 04 05 --no-export
-          python pipeline/grafo.py
-          python pipeline/build.py --all
-          python -m pytest tests/ -v
-      - name: puertas de calidad (sin warehouse, se saltan las que lo necesitan)
+          uv run python pipeline/ingest.py
+          uv run python pipeline/build.py --steps 01 02 03 04 05 --no-export
+          uv run python pipeline/grafo.py
+          uv run python pipeline/build.py --all
+          uv run python -m pytest tests/ -v
+      - name: puertas de calidad (sin warehouse, se saltan las que lo necesitan) + contrato del API
         if: github.ref != 'refs/heads/main'
-        run: python -m pytest tests/ -v
-      # docs/PLAN_VUE.md T0.5: antes de esto, la compuerta que "tumba la
-      # publicacion" (plomada/test_privacy.py) solo corria en la maquina de
-      # quien ejecutara plomada/build.py a mano -- el CI nunca la disparaba.
-      # Corre con las fixtures sinteticas (sin warehouse) en cada push/PR, no
-      # solo en main: es la puerta de privacidad, no la ingesta de datos.
+        run: uv run python -m pytest tests/ api/tests/ -v
+      # plomada/test_privacy.py es la compuerta que tumba la publicacion del
+      # sitio; corre con fixtures sinteticas en cada push, no solo en main.
       - uses: actions/setup-node@v4
         with: { node-version: "22" }
       - name: sitio estatico + prueba de privacidad (plomada/test_privacy.py)
         run: |
-          python3 design/construir.py
-          python3 plomada/gen_synthetic.py
-          python3 plomada/build.py
-      - name: paridad de formato Python/JS (nunca corria en CI)
+          uv run python design/construir.py
+          uv run python plomada/gen_synthetic.py
+          uv run python plomada/build.py
+      - name: paridad de formato Python/JS
         run: node tests/test_formato.mjs
 
-  # Suite aparte: el API vive en su propio entorno (el SDK de MCP exige
-  # Python >=3.10 y el pipeline esta fijado a 3.9). No necesita Postgres --
-  # la capa de consulta se sustituye por dobles -- asi que corre en cada PR.
-  api:
+  # ------------------------------------------------------------- Auditoria
+  auditoria:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.11" }
-      - run: pip install -r api/requirements-dev.txt
-      - name: contrato del API
-        run: python -m pytest api/tests/ -v
+      - uses: astral-sh/setup-uv@v6
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+      - run: uv sync --frozen --extra plataforma --extra legacy --extra dev
+      - name: pip-audit sobre el lock
+        run: |
+          uv export --frozen --no-dev --extra plataforma --extra legacy --no-hashes --no-emit-project > /tmp/req.txt
+          uv run pip-audit -r /tmp/req.txt --strict --progress-spinner off
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - name: npm audit (islas Vue de Plomada)
+        working-directory: frontend
+        run: npm ci --ignore-scripts && npm audit --audit-level=high

@@ -45,8 +45,9 @@ estructura: `datos.py` (única capa con IO), `logica.py` (funciones puras),
 
 ## Correr
 
-Requisitos: Python 3.12+, `pip install -r requirements-dev.txt`, y `poppler-utils`
-para el checklist. Variables en `.env` (copiar de `.env.example`; nunca se commitea).
+Requisitos: Python 3.12+, [uv](https://docs.astral.sh/uv/) y `poppler-utils` para el
+checklist. `uv sync --extra plataforma --extra dev` instala todo desde `uv.lock`
+(sin uv: `pip install -e ".[plataforma,dev]"`). Variables en `.env` (copiar de `.env.example`; nunca se commitea).
 
 **Demo (vitrina, perfil ficticio):**
 ```bash
@@ -71,8 +72,8 @@ verificación salen por el log. Guía completa en
 
 **Pruebas y lint:**
 ```bash
-python -m pytest        # los enfoques sobre fixtures; la plataforma contra Postgres, sin red
-ruff check pliego demo plataforma
+python -m pytest        # todo (pyproject.toml): enfoques sobre fixtures, plataforma contra Postgres, legado
+ruff check .
 ```
 
 ## Variables de entorno

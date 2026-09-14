@@ -16,9 +16,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from pliego.comun import entorno  # noqa: F401  (carga .env: DATABASE_URL local)
 from plataforma import carpeta as CARPETA
 from plataforma import extraccion as X
+from pliego.comun import entorno  # noqa: F401  (carga .env: DATABASE_URL local)
 
 RAIZ = Path(__file__).resolve().parents[2]
 FIX_CHECK = RAIZ / "pliego" / "checklist" / "fixtures"

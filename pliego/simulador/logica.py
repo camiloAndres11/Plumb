@@ -21,7 +21,7 @@ pruebas).
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 
 from pliego.simulador.metodos import Version
 

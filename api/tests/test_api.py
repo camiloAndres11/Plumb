@@ -10,22 +10,16 @@ Las puertas sobre los datos viven en tests/test_calidad.py (Python 3.9,
 contra el warehouse DuckDB). Son dos suites porque son dos entornos: el
 pipeline esta fijado a 3.9 y el SDK de MCP exige >=3.10.
 
-    pip install -r api/requirements-dev.txt
-    python -m pytest api/tests/ -v
+    python -m pytest api/tests/ -v      # deps: pip install -e ".[legacy,dev]"
 """
 from __future__ import annotations
 
 import datetime
-import os
-import sys
 
 import pytest
+from app import consultas  # api/ esta en pythonpath (pyproject.toml)
+from app.main import app
 from fastapi.testclient import TestClient
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from app import consultas  # noqa: E402
-from app.main import app  # noqa: E402
 
 GLOSARIO = [
     {"bandera": "f_proponente_unico", "peso": 2.0, "grupo": "Competencia", "capa": "contrato",

@@ -1,7 +1,5 @@
-# Pipeline analitico. Python 3.11 fijo para todos: el entorno local del lider
-# es 3.9 y eso ya rompio anotaciones tipo `str | None`, que 3.9 evalua en
-# tiempo de definicion. Docker elimina esa clase de bug del equipo.
-FROM python:3.11-slim AS base
+# Pipeline analitico. Python 3.12, el mismo de todo el repo (pyproject.toml).
+FROM python:3.12-slim AS base
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PIP_NO_CACHE_DIR=1
 WORKDIR /app
 

@@ -242,8 +242,8 @@ def test_wizard_de_perfil_guarda_y_deja_departamentos_pendientes(cliente):
     assert "0 de 2 listos" in cliente.get("/panel").text
     db.ejecutar("DELETE FROM pliego.descargas_departamento WHERE departamento IN ('VAUPES', 'GUAINIA')")
     # el filtro ve el perfil de la empresa a traves del contexto
-    from pliego.filtro import datos as D
     from pliego.comun import contexto
+    from pliego.filtro import datos as D
     t = contexto.set(1, emp["perfil"] | {"nombre": "Perfil Prueba", "nit": nit}, ["VAUPES", "GUAINIA"])
     try:
         assert D.perfil()["nombre"] == "Perfil Prueba"

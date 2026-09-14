@@ -130,9 +130,9 @@ python pipeline/load_postgres.py                              # carga las tablas
 
 python -m venv .venv-mcp
 .venv-mcp/Scripts/pip install -r api/requirements.txt
-.venv-mcp/Scripts/python api/app/mcp/test_smoke.py           # via stdio
+.venv-mcp/Scripts/python api/app/mcp/humo_mcp.py           # via stdio
 cd api && ../.venv-mcp/Scripts/python -m app.mcp.server --http &   # http, puerto 8765
-.venv-mcp/Scripts/python api/app/mcp/test_smoke.py --http
+.venv-mcp/Scripts/python api/app/mcp/humo_mcp.py --http
 ```
 
 **Sin `DATABASE_URL`, las tools fallan con un error de tool claro (no tumban
@@ -267,7 +267,7 @@ El contrato de abajo es el que `static/chat.js` implementa, y sigue vigente:
 ## Orden de trabajo — qué ya está hecho
 
 1. ✅ Servidor MCP corriendo local, probado con un cliente MCP real
-   (`api/app/mcp/test_smoke.py`) por **stdio y por HTTP**, contra datos
+   (`api/app/mcp/humo_mcp.py`) por **stdio y por HTTP**, contra datos
    reales del warehouse.
 2. ✅ `/chat` construido en `api/app/main.py`, con `/mcp` montado en el mismo
    proceso (verificado: arranca, `/health` responde, `/mcp` responde).
