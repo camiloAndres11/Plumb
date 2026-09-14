@@ -6,6 +6,7 @@ SECRET_KEY.
     firmar("id") / leer_firma(valor, max_edad)        cookie de sesion
     nuevo_token()                                     ids de sesion y tokens de un uso
     permitir("login:ip:1.2.3.4", max=10, ventana=900) rate limit por ventana fija
+    ip_cliente(request)                               la IP real detras de los proxies de confianza
     validar_contrasena(clave, email)                  politica minima
     nit_valido("900.195.855-1") -> "900195855"        NIT con digito de verificacion DIAN
 """
@@ -81,6 +82,19 @@ def nuevo_token() -> str:
 
 
 # -------------------------------------------------------------- rate limit
+def ip_cliente(request, proxies: int | None = None) -> str:
+    """La IP del cliente. Con `proxies` (config.proxies_confiables) saltos de
+    confianza delante, es el salto N-esimo desde la derecha de
+    X-Forwarded-For: lo que el cliente ponga a la izquierda no cuenta. Con 0
+    proxies se ignora la cabecera y vale la IP del socket."""
+    proxies = config.proxies_confiables if proxies is None else proxies
+    socket = request.client.host if request.client else "?"
+    if proxies <= 0:
+        return socket
+    saltos = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
+    return saltos[-proxies] if len(saltos) >= proxies else socket
+
+
 def permitir(clave: str, maximo: int, ventana_seg: int) -> bool:
     """Cuenta el intento y dice si cabe en la ventana. Ventana fija alineada
     al reloj: simple, y suficiente para frenar fuerza bruta y enumeracion."""

@@ -34,8 +34,21 @@ def obtener(empresa_id: int, pliego_id: int) -> dict | None:
     return db.uno("SELECT * FROM pliego.pliegos WHERE id = %s AND empresa_id = %s", [pliego_id, empresa_id])
 
 
+def gasto_mes_usd(empresa_id: int) -> float:
+    """Lo que la empresa lleva gastado en extracciones este mes calendario."""
+    fila = db.uno("SELECT coalesce(sum(costo_usd), 0) AS usd FROM pliego.pliegos "
+                  "WHERE empresa_id = %s AND creado >= date_trunc('month', now())", [empresa_id])
+    return float(fila["usd"]) if fila else 0.0
+
+
+def presupuesto_agotado(empresa_id: int) -> bool:
+    return gasto_mes_usd(empresa_id) >= config.pliego_presupuesto_usd_mes
+
+
 def guardar(empresa_id: int, usuario_id: int, nombre: str, contenido: bytes) -> tuple[dict | None, str | None]:
-    """Guarda el PDF y crea la fila `subido`. (fila, error)."""
+    """Guarda el PDF y crea la fila `subido`. (fila, error). Rechaza antes
+    de escribir lo que no es PDF, lo que pesa de mas y lo que tiene mas
+    paginas de las que la extraccion acepta (config.pliego_max_paginas)."""
     if not contenido.startswith(b"%PDF"):
         return None, "El archivo no es un PDF."
     if len(contenido) > MAX_BYTES:
@@ -48,6 +61,10 @@ def guardar(empresa_id: int, usuario_id: int, nombre: str, contenido: bytes) -> 
     carpeta_.mkdir(parents=True, exist_ok=True)
     ruta = carpeta_ / f"{sha}.pdf"
     ruta.write_bytes(contenido)
+    paginas = extraccion.n_paginas(ruta)
+    if paginas > config.pliego_max_paginas:
+        ruta.unlink(missing_ok=True)
+        return None, f"El PDF tiene {paginas} páginas; el máximo es {config.pliego_max_paginas}."
     relativa = str(ruta.relative_to(config.datos))
     fila = db.uno("INSERT INTO pliego.pliegos (empresa_id, nombre, sha256, ruta_pdf, estado, subido_por) "
                   "VALUES (%s, %s, %s, %s, 'subido', %s) RETURNING id, estado", [empresa_id, nombre[:200], sha, relativa, usuario_id])
@@ -77,7 +94,8 @@ def extraer(pliego_id: int, cliente=None) -> None:
     db.ejecutar("UPDATE pliego.pliegos SET estado = 'extrayendo', error = NULL WHERE id = %s", [pliego_id])
     try:
         ruta = config.datos / fila["ruta_pdf"]
-        r = extraccion.extraer(ruta.read_bytes(), fila["nombre"], carpeta_paginas=ruta.parent / fila["sha256"], cliente=cliente)
+        r = extraccion.extraer(ruta.read_bytes(), fila["nombre"], carpeta_paginas=ruta.parent / fila["sha256"], cliente=cliente,
+                               max_paginas=config.pliego_max_paginas)
         avisos = extraccion.validar({"proceso": r["requisitos"]["proceso"], "requisitos": r["requisitos"]["requisitos"]})
         db.ejecutar("UPDATE pliego.pliegos SET estado = 'listo', extraccion = %s, requisitos = %s, citas_bbox = %s, paginas = %s, "
                     "costo_usd = %s, error = %s, listo = now() WHERE id = %s",

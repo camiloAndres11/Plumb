@@ -156,8 +156,10 @@ def cambiar_nombre(usuario_id: int, nombre: str) -> None:
 
 # ----------------------------------------------------------------- equipo
 def invitar(empresa: dict, invita: dict, email: str, rol: str) -> str | None:
-    """Emite la invitacion y manda el correo. None si ese email ya es
-    usuario (de esta o de otra empresa: un email es una sola cuenta)."""
+    """Emite la invitacion y manda el correo. Si ese email ya es usuario (de
+    esta o de otra empresa: un email es una sola cuenta) no se emite nada y
+    se devuelve None; el router responde IGUAL en ambos casos, para que
+    /invitar no sirva para enumerar que correos son clientes."""
     email = email.lower()
     if usuario_por_email(email):
         return None
@@ -207,5 +209,5 @@ def quitar_usuario(empresa_id: int, usuario_id: int) -> str | None:
 def _es_ultimo_admin(empresa_id: int, usuario_id: int) -> bool:
     fila = db.uno("SELECT count(*) AS n FROM pliego.usuarios WHERE empresa_id = %s AND rol = 'admin' AND id <> %s",
                   [empresa_id, usuario_id])
-    u = usuario_por_id(usuario_id)
+    u = db.uno("SELECT rol FROM pliego.usuarios WHERE id = %s AND empresa_id = %s", [usuario_id, empresa_id])
     return bool(u and u["rol"] == "admin" and fila and fila["n"] == 0)

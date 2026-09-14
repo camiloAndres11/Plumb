@@ -71,6 +71,15 @@ export function sanear(valor) {
       limpio._mismo_ordenador_supervisor =
         !!valor.doc_ordenador && valor.doc_ordenador === valor.doc_supervisor;
     }
+    // El API ya no manda las cedulas: manda su presencia (tiene_doc_*) y la
+    // coincidencia (mismo_ordenador_supervisor). Se traducen a los nombres
+    // que las vistas ya usan, asi el sitio no cambia.
+    for (const k of Object.keys(valor)) {
+      if (k.startsWith('tiene_doc_')) limpio['_' + k] = !!valor[k];
+    }
+    if ('mismo_ordenador_supervisor' in valor) {
+      limpio._mismo_ordenador_supervisor = !!valor.mismo_ordenador_supervisor;
+    }
     return limpio;
   }
   return valor;

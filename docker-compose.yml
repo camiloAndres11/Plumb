@@ -1,12 +1,16 @@
-# Dev local: docker compose up  ->  API en :8000, plataforma en :8100, Postgres en :5432
+# Dev local: docker compose up  ->  API en :8000, plataforma en :8100, Postgres en 127.0.0.1:5432
+# Necesita POSTGRES_PASSWORD y SECRET_KEY en .env (compose lo lee solo).
 services:
   db:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: plomada
-      POSTGRES_PASSWORD: plomada
+      # Sin valor por defecto a proposito: una base con clave conocida y
+      # puerto publicado es una base abierta. Ponla en .env.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD en .env}
       POSTGRES_DB: plomada
-    ports: ["5432:5432"]
+    # Solo loopback: la base no se expone a la red local.
+    ports: ["127.0.0.1:5432:5432"]
     volumes: ["pgdata:/var/lib/postgresql/data"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U plomada"]
@@ -18,7 +22,7 @@ services:
     environment:
       # Forma plana, no `postgresql+psycopg://`: la de SQLAlchemy no la
       # parsean ni psycopg ni el ATTACH de DuckDB, y aqui no se usa SQLAlchemy.
-      DATABASE_URL: postgresql://plomada:plomada@db:5432/plomada
+      DATABASE_URL: postgresql://plomada:${POSTGRES_PASSWORD}@db:5432/plomada
       SELF_URL: http://localhost:8000
     ports: ["8000:8000"]
     depends_on:
@@ -28,9 +32,11 @@ services:
   plataforma:
     build: { context: ., dockerfile: plataforma/Dockerfile }
     environment:
-      DATABASE_URL: postgresql://plomada:plomada@db:5432/plomada
+      DATABASE_URL: postgresql://plomada:${POSTGRES_PASSWORD}@db:5432/plomada
       BASE_URL: http://localhost:8100
-      SECRET_KEY: ${SECRET_KEY:-solo-para-desarrollo-cambiar-en-produccion}
+      # Sin valor por defecto: una clave publica en el repo firma cookies de
+      # sesion validas para cualquiera que la lea.
+      SECRET_KEY: ${SECRET_KEY:?falta SECRET_KEY en .env (python -c "import secrets; print(secrets.token_urlsafe(48))")}
       SMTP_URL: ${SMTP_URL:-}
       PLATAFORMA_ADMINS: ${PLATAFORMA_ADMINS:-}
       PLIEGO_FUENTE: warehouse
@@ -47,7 +53,7 @@ services:
     build: { context: ., dockerfile: pipeline/Dockerfile }
     volumes: ["./data:/app/data", "./out:/app/out"]
     environment:
-      DATABASE_URL: postgresql://plomada:plomada@db:5432/plomada
+      DATABASE_URL: postgresql://plomada:${POSTGRES_PASSWORD}@db:5432/plomada
     profiles: ["tools"]
     depends_on:
       db: { condition: service_healthy }

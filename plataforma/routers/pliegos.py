@@ -51,6 +51,21 @@ def lista(request: Request, usuario: dict = Depends(sesiones.requiere_sesion)):
     return V.privada("Pliegos", cuerpo, "/pliegos", usuario, empresa, token)
 
 
+async def _leer_con_tope(archivo: UploadFile, maximo: int) -> bytes | None:
+    """Lee el upload por trozos y corta en cuanto pasa del tope, en vez de
+    cargar en memoria lo que mande el cliente."""
+    partes, total = [], 0
+    while True:
+        trozo = await archivo.read(1024 * 1024)
+        if not trozo:
+            break
+        total += len(trozo)
+        if total > maximo:
+            return None
+        partes.append(trozo)
+    return b"".join(partes)
+
+
 @router.post("/pliegos")
 async def subir(request: Request, usuario: dict = Depends(sesiones.requiere_sesion), _: None = Depends(sesiones.csrf),
                 archivo: UploadFile | None = None):
@@ -59,7 +74,11 @@ async def subir(request: Request, usuario: dict = Depends(sesiones.requiere_sesi
         return sesiones.redirigir("/pliegos?error=" + quote("Elija un PDF."))
     if not seguridad.permitir("pliegos:" + str(empresa["id"]), 20, 86400):
         return sesiones.redirigir("/pliegos?error=" + quote("Ya se subieron muchos pliegos hoy; intente mañana."))
-    contenido = await archivo.read()
+    if pliegos.presupuesto_agotado(empresa["id"]):
+        return sesiones.redirigir("/pliegos?error=" + quote("Se agotó el presupuesto de extracción de este mes; contacte a soporte."))
+    contenido = await _leer_con_tope(archivo, pliegos.MAX_BYTES)
+    if contenido is None:
+        return sesiones.redirigir("/pliegos?error=" + quote("El PDF pesa más de 30 MB."))
     fila, error = pliegos.guardar(empresa["id"], usuario["id"], archivo.filename, contenido)
     if error and not fila:
         return sesiones.redirigir("/pliegos?error=" + quote(error))
@@ -82,6 +101,8 @@ def reintentar(request: Request, pliego_id: int, usuario: dict = Depends(sesione
     fila = pliegos.obtener(request.state.empresa["id"], pliego_id)
     if not fila or fila["estado"] == "extrayendo":
         return sesiones.redirigir("/pliegos")
+    if pliegos.presupuesto_agotado(request.state.empresa["id"]):
+        return sesiones.redirigir("/pliegos?error=" + quote("Se agotó el presupuesto de extracción de este mes; contacte a soporte."))
     db.ejecutar("UPDATE pliego.pliegos SET estado = 'subido', error = NULL WHERE id = %s", [pliego_id])
     if not extraccion.disponible():
         return sesiones.redirigir("/pliegos?error=" + quote("La extracción no está configurada (ANTHROPIC_API_KEY)."))

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import time
 from contextlib import asynccontextmanager
 
@@ -65,6 +66,38 @@ app.mount("/static", EstaticosDeDos(), name="static")
 app.middleware("http")(sesiones.cargar)
 
 
+# Los tokens de un uso (verificar, restablecer, invitacion) viajan en el
+# path; un token de reset vale lo que la contrasena durante una hora, y no
+# puede quedar en claro en un log que lee soporte o un agregador.
+_TOKEN_EN_PATH = re.compile(r"^(/(?:verificar|restablecer|invitacion)/)[^/?#]+")
+
+
+def ruta_para_log(path: str) -> str:
+    return _TOKEN_EN_PATH.sub(r"\1<token>", path)
+
+
+# TODO(F4): al sacar el CSS y el JS inline a archivos (plantillas Jinja),
+# quitar 'unsafe-inline' de script-src y style-src.
+CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+       "img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; "
+       "base-uri 'self'; form-action 'self'")
+
+
+@app.middleware("http")
+async def _cabeceras_seguridad(request: Request, call_next):
+    """Sin CSP cualquier XSS futuro es explotacion total; sin frame-ancestors
+    un iframe invisible sobre /pliegos/{id}/borrar es clickjacking."""
+    respuesta = await call_next(request)
+    h = respuesta.headers
+    h.setdefault("Content-Security-Policy", CSP)
+    h.setdefault("X-Frame-Options", "DENY")
+    h.setdefault("X-Content-Type-Options", "nosniff")
+    h.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    if request.url.scheme == "https":
+        h.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return respuesta
+
+
 @app.middleware("http")
 async def _acceso(request: Request, call_next):
     """Una linea por peticion con usuario y empresa: es lo que hay que
@@ -73,13 +106,15 @@ async def _acceso(request: Request, call_next):
     respuesta = await call_next(request)
     if not request.url.path.startswith("/static"):
         u, e = getattr(request.state, "usuario", None), getattr(request.state, "empresa", None)
-        acceso.info("%s %s %s %dms usuario=%s empresa=%s", request.method, request.url.path, respuesta.status_code,
-                    (time.monotonic() - t0) * 1000, u["id"] if u else "-", e["id"] if e else "-")
+        acceso.info("%s %s %s %dms usuario=%s empresa=%s", request.method, ruta_para_log(request.url.path),
+                    respuesta.status_code, (time.monotonic() - t0) * 1000, u["id"] if u else "-", e["id"] if e else "-")
     return respuesta
 
 
-@app.get("/health")
-def health():
+def estado_detallado() -> dict:
+    """Lo que antes devolvia /health a cualquiera: rutas en disco, errores de
+    Postgres, ids de pliegos en cola, que llaves hay. Es reconocimiento
+    gratis; ahora solo lo ve /admin."""
     ok, detalle = db.disponible()
     try:
         wh = warehouse.estado()
@@ -90,10 +125,17 @@ def health():
     if ok:
         fila = db.uno("SELECT max(ultima_ok) AS u FROM pliego.descargas_departamento")
         ultimo = fila["u"].isoformat() if fila and fila["u"] else None
-    return JSONResponse({"ok": ok, "version": VERSION, "postgres": detalle, "warehouse": wh_detalle,
-                         "cola": trabajos.en_cola(), "ultimo_refresco": ultimo, "trabajos": bool(trabajos._hilos),
-                         "croma": croma.disponible(), "extraccion": extraccion.disponible(),
-                         "secret_key": bool(config.secret_key)}, status_code=200 if ok else 503)
+    return {"ok": ok, "version": VERSION, "postgres": detalle, "warehouse": wh_detalle,
+            "cola": trabajos.en_cola(), "ultimo_refresco": ultimo, "trabajos": bool(trabajos._hilos),
+            "croma": croma.disponible(), "extraccion": extraccion.disponible(),
+            "secret_key": bool(config.secret_key)}
+
+
+@app.get("/health")
+def health():
+    """Para el health check del hosting: solo si la base responde."""
+    ok, _ = db.disponible()
+    return JSONResponse({"ok": ok, "version": VERSION}, status_code=200 if ok else 503)
 
 
 @app.exception_handler(sesiones.Redirigir)

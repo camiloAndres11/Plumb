@@ -225,25 +225,44 @@ def citas_y_paginas(pdf_ruta: Path, requisitos_json: dict, destino: Path) -> dic
                 f.rename(destino / f"p{int(f.stem.split('-')[1])}.png")
         except Exception as e:   # una pagina rara no tumba la extraccion
             log.warning("pagina %s: %s", n, e)
+    no_localizadas = []
     for r in reqs:
         if r.get("pagina") not in cache:
             continue
         w, h, palabras = cache[r["pagina"]]
         cajas = localizar(r.get("cita", ""), palabras)
+        if not cajas and r.get("cita") and r.get("tipo") != "revisar":
+            # El texto del PDF entra en el mismo canal que las instrucciones
+            # del modelo. Una cita que no esta en la pagina que dice estar
+            # puede ser una alucinacion o un pliego adulterado: no se toma
+            # como hecho verificable, se manda a lectura humana.
+            r["tipo_original"], r["tipo"], r["cita_no_localizada"] = r["tipo"], "revisar", True
+            no_localizadas.append(r["id"])
         salida[r["id"]] = {"pagina": r["pagina"], "ancho": w, "alto": h,
                            "cajas": [[round(x0 / w, 4), round(y0 / h, 4), round(x1 / w, 4), round(y1 / h, 4)] for x0, y0, x1, y1 in cajas]}
+    if no_localizadas:
+        log.warning("citas no localizadas en su pagina (pasan a 'revisar'): %s", no_localizadas)
     return salida
 
 
 # ------------------------------------------------------------------ todo
-def extraer(pdf: bytes, nombre: str, carpeta_paginas: Path | None = None, cliente=None) -> dict:
+class DemasiadasPaginas(ExtraccionError):
+    pass
+
+
+def extraer(pdf: bytes, nombre: str, carpeta_paginas: Path | None = None, cliente=None,
+            max_paginas: int | None = None) -> dict:
     """PDF -> {requisitos, extraccion, citas_bbox, paginas, costo_usd, uso}.
-    Escribe las paginas PNG en carpeta_paginas si se da."""
-    tool_input, uso = llamar_claude(pdf, cliente)
+    Escribe las paginas PNG en carpeta_paginas si se da. Cuenta las paginas
+    ANTES de llamar a Claude: un PDF por encima de `max_paginas` se rechaza
+    sin gastar."""
     with tempfile.TemporaryDirectory() as tmp:
         ruta = Path(tmp) / "pliego.pdf"
         ruta.write_bytes(pdf)
         paginas = n_paginas(ruta)
+        if max_paginas and paginas > max_paginas:
+            raise DemasiadasPaginas(f"el pliego tiene {paginas} páginas y el tope es {max_paginas}")
+        tool_input, uso = llamar_claude(pdf, cliente)
         requisitos_json, pliego_json = a_formas(tool_input, nombre, paginas)
         cajas = citas_y_paginas(ruta, requisitos_json, carpeta_paginas) if carpeta_paginas else {}
     return {"requisitos": requisitos_json, "extraccion": pliego_json, "citas_bbox": cajas, "paginas": paginas,
@@ -260,5 +279,8 @@ def validar(tool_input: dict) -> list[str]:
         avisos.append("smmlv raro")
     if len(tool_input.get("requisitos") or []) < 5:
         avisos.append("menos de 5 requisitos")
+    n = sum(1 for r in tool_input.get("requisitos") or [] if r.get("cita_no_localizada"))
+    if n:
+        avisos.append(f"{n} cita(s) no encontradas en su página; quedan para revisar")
     return avisos
 

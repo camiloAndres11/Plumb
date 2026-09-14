@@ -245,13 +245,18 @@ class Competencia(BaseModel):
 
 
 class Partes(BaseModel):
+    """Quien firma. Los documentos de identidad de personas naturales
+    (ordenador del gasto, supervisor, representante legal) NO se publican:
+    son dato personal (Ley 1581 de 2012). Lo unico que el sitio necesita de
+    ellos es si estan y si dos coinciden, y eso sale como booleanos."""
     proveedor: str | None = None
-    doc_proveedor: str | None = None
+    doc_proveedor: str | None = Field(default=None, description="NIT del contratista; identificador del recurso /v1/proveedores")
     ordenador: str | None = None
-    doc_ordenador: str | None = None
     supervisor: str | None = None
-    doc_supervisor: str | None = None
-    doc_replegal: str | None = None
+    tiene_doc_ordenador: bool = False
+    tiene_doc_supervisor: bool = False
+    tiene_doc_replegal: bool = False
+    mismo_ordenador_supervisor: bool = Field(default=False, description="El ordenador del gasto y el supervisor son la misma persona")
 
 
 class Riesgo(BaseModel):

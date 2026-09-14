@@ -51,7 +51,7 @@ def reintentar(request: Request, usuario: dict = Depends(sesiones.requiere_admin
                departamento: str = Form(...)):
     if departamento not in request.state.empresa["departamentos"]:
         return sesiones.redirigir("/empresa/datos?error=" + quote("Ese departamento no es de su empresa."))
-    if not seguridad.permitir("reintentar:" + departamento, 3, 3600):
+    if not seguridad.permitir(f"reintentar:{request.state.empresa['id']}:{departamento}", 3, 3600):
         return sesiones.redirigir("/empresa/datos?error=" + quote("Ya se pidió varias veces en la última hora."))
     db.ejecutar("UPDATE pliego.descargas_departamento SET estado = 'pendiente', error = NULL WHERE departamento = %s AND estado <> 'descargando'",
                 [departamento])
@@ -111,9 +111,8 @@ def invitar(request: Request, usuario: dict = Depends(sesiones.requiere_admin), 
         rol = "miembro"
     if not seguridad.permitir("invitar:" + str(request.state.empresa["id"]), 20, 3600):
         return sesiones.redirigir("/empresa/equipo?error=" + quote("Demasiadas invitaciones en una hora."))
-    if cuentas.invitar(request.state.empresa, usuario, e, rol) is None:
-        return sesiones.redirigir("/empresa/equipo?error=" + quote("Ese correo ya tiene una cuenta en Pliego."))
-    return sesiones.redirigir("/empresa/equipo?ok=" + quote(f"Invitación enviada a {e}."))
+    cuentas.invitar(request.state.empresa, usuario, e, rol)   # None si ya tiene cuenta: se responde igual
+    return sesiones.redirigir("/empresa/equipo?ok=" + quote(f"Si {e} no tiene cuenta en Pliego, la invitación va en camino."))
 
 
 @router.post("/empresa/equipo/rol")

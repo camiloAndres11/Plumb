@@ -39,6 +39,19 @@ class Config(BaseSettings):
     plataforma_datos: str = str(RAIZ / "data")
     # Sesion: dias de inactividad antes de expirar.
     sesion_dias: int = 30
+    # Caducidad absoluta desde que se abrio, aunque se siga usando.
+    sesion_max_dias: int = 90
+    # Saltos de X-Forwarded-For que se descuentan desde la derecha para hallar
+    # la IP real. Por defecto 0: uvicorn ya resuelve la IP con --proxy-headers
+    # y una lista de proxies de red privada (ver el Dockerfile), asi que vale
+    # la del socket y la cabecera se ignora. Solo para despliegues sin esa
+    # capa (p. ej. detras de un proxy con IP publica).
+    proxies_confiables: int = 0
+    # Topes de la extraccion de pliegos con Claude, que paga la plataforma:
+    # paginas maximas por PDF (se cuentan ANTES de llamar) y presupuesto en
+    # USD por empresa y mes calendario (suma de costo_usd de sus pliegos).
+    pliego_max_paginas: int = 300
+    pliego_presupuesto_usd_mes: float = 25.0
 
     @property
     def dsn(self) -> str:

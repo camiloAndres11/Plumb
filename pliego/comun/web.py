@@ -35,6 +35,13 @@ def h(x) -> str:
     return html.escape(_CONTROL.sub(" ", str(x if x is not None else "")), quote=True)
 
 
+def url_segura(u: str | None) -> str:
+    """Para un href que viene de los datos (SECOP, Croma): solo http(s). Un
+    `javascript:` en la fuente no debe convertirse en un enlace ejecutable."""
+    u = (u or "").strip()
+    return h(u) if u.lower().startswith(("http://", "https://")) else "#"
+
+
 def frase(s: str | None) -> str:
     """Descripciones del SECOP, que suelen venir EN MAYUSCULAS: si mas del
     60 % de las letras son mayusculas se pasa a tipo oracion. Si no, se deja."""

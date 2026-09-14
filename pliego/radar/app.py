@@ -308,6 +308,6 @@ def proceso(id_proceso: str):
       <div>0,5 por cada una de la familia en el país (tope 6)</div><div>Lo de hace más de 3 años pesa la mitad</div><div>La saturación resta hasta un 50 %</div></div></div>
   </div>
 </div>
-<p class="foot-note">"Probable" = ha ganado procesos parecidos. SECOP no publica quién se presentó y perdió; esto es lo que se puede ver, y por eso el peso es un orden, no una probabilidad. <a href="{W.h(p['urlproceso'] or '#')}" target="_blank" rel="noopener" style="color:var(--ad-ink-85)">Abrir en SECOP II →</a></p>
+<p class="foot-note">"Probable" = ha ganado procesos parecidos. SECOP no publica quién se presentó y perdió; esto es lo que se puede ver, y por eso el peso es un orden, no una probabilidad. <a href="{W.url_segura(p['urlproceso'])}" target="_blank" rel="noopener" style="color:var(--ad-ink-85)">Abrir en SECOP II →</a></p>
 """
     return W.pagina(f"Competidores · {id_proceso}", cuerpo, _side("/"), EXTRA_CSS)
