@@ -28,6 +28,9 @@ from pliego.checklist.app import app as checklist_app
 from pliego.comun import fuente
 from pliego.comun import web as W
 from pliego.filtro import datos as filtro_datos
+from pliego.radar import datos as radar_datos
+from pliego.simulador import datos as simulador_datos
+from pliego.simulador.metodos import VERSION_DEFECTO, VERSIONES
 from pliego.filtro.app import app as filtro_app
 from pliego.generador.app import app as generador_app
 from pliego.radar.app import app as radar_app
@@ -37,18 +40,49 @@ RAIZ = Path(__file__).resolve().parents[1]
 PLOMADA = RAIZ / "plomada"
 LANDING = PLOMADA / "landing.html"
 
+# (ruta, nombre, promesa, icono). La cifra y su pie salen de los datos
+# (ver _cifras): con los fixtures dan lo de siempre, con Croma lo de hoy.
 ENFOQUES = [
-    ("filtro", "Filtro de procesos", "Deje de presentarse a licitaciones que no puede ganar.",
-     "36 de 565", "procesos abiertos valen su tiempo", "filtro"),
-    ("checklist", "Checklist del pliego", "No vuelva a quedar por fuera por un papel.",
-     "3 cosas", "faltan para quedar habilitado en Bucaramanga", "check"),
-    ("simulador", "Simulador de oferta", "Oferte al precio que maximiza su puntaje, no al más bajo.",
-     "94,5 %", "precio recomendado para Maripí · 58,9 de 60", "grafico"),
-    ("radar", "Radar de competidores", "Sepa contra quién compite antes de presentarse.",
-     "10", "competidores probables en el CTP de Bucaramanga", "radar"),
-    ("generador", "Generador de propuesta", "Prepare la propuesta en horas, no en días.",
-     "60 %", "de la propuesta lista · falta 1 cosa que la rechaza", "doc"),
+    ("filtro", "Filtro de procesos", "Deje de presentarse a licitaciones que no puede ganar.", "filtro"),
+    ("checklist", "Checklist del pliego", "No vuelva a quedar por fuera por un papel.", "check"),
+    ("simulador", "Simulador de oferta", "Oferte al precio que maximiza su puntaje, no al más bajo.", "grafico"),
+    ("radar", "Radar de competidores", "Sepa contra quién compite antes de presentarse.", "radar"),
+    ("generador", "Generador de propuesta", "Prepare la propuesta en horas, no en días.", "doc"),
 ]
+
+
+def _corto(nombre: str | None, n: int = 26) -> str:
+    """Nombre de entidad para un pie de tarjeta: en tipo oracion y recortado."""
+    s = W.frase(nombre) if nombre else ""
+    return s if len(s) <= n else s[: n - 1].rstrip() + "…"
+
+
+def _cifras() -> dict[str, tuple[str, str]]:
+    """La cifra grande y su pie por enfoque, calculadas de los datos que la
+    demo esta sirviendo. Checklist y generador siguen sobre su pliego de
+    ejemplo (Croma no entrega pliegos), asi que su cifra es fija."""
+    res = filtro_datos.resumen()
+    cifras = {
+        "filtro": (f"{res['conteo']['presentarse']} de {res['total']}", "procesos abiertos valen su tiempo"),
+        "checklist": ("3 cosas", "faltan para quedar habilitado en Bucaramanga"),
+        "generador": ("60 %", "de la propuesta lista · falta 1 cosa que la rechaza"),
+        "simulador": ("—", "sin procesos de obra abiertos"),
+        "radar": ("—", "sin procesos abiertos"),
+    }
+    abiertos = simulador_datos.abiertos()
+    if abiertos:
+        p = abiertos[0]
+        r = simulador_datos.recomendar_para(p["id_del_proceso"])
+        maximo = int(VERSIONES[VERSION_DEFECTO].puntaje_maximo)
+        ciudad = p.get("ciudad") if p.get("ciudad") not in (None, "", "NO DEFINIDO") else p.get("entidad")
+        cifras["simulador"] = (f"{100 * r['ratio']:.1f} %".replace(".", ","),
+                               f"precio recomendado para {_corto(ciudad)} · {r['esperado']:.1f} de {maximo}".replace(".", ","))
+    abiertos = radar_datos.abiertos()
+    if abiertos:
+        p = abiertos[0]
+        n = len(radar_datos.competidores_de(p["id_del_proceso"]))
+        cifras["radar"] = (str(n), f"competidores probables en {_corto(p.get('entidad'))}")
+    return cifras
 # Rutas del concentrador que las apps montadas pueden enlazar sin que se
 # les anteponga el prefijo (la sidebar de cada una lleva «Panel»).
 RUTAS_HUB = ("/panel", "/login", "/salir", "/#")
@@ -211,14 +245,16 @@ def _fecha_larga(d) -> str:
 @app.get("/panel", response_class=HTMLResponse)
 def panel():
     tarjetas = ""
-    for i, (ruta, nombre, promesa, cifra, sub, icono) in enumerate(ENFOQUES):
+    cifras = _cifras()
+    for i, (ruta, nombre, promesa, icono) in enumerate(ENFOQUES):
+        cifra, sub = cifras[ruta]
         hot = i == 0
         tarjetas += f"""<a class="pn-card{' hot' if hot else ''}" href="/{ruta}/">
   <div><div class="pn-top"><span class="pn-ico">{W.ICONOS[icono]}</span><span class="tag{'' if hot else ' tag-neutro'}">Enfoque {i + 1}</span></div>
   <div class="pn-nombre">{W.h(nombre)}</div><div class="pn-promesa">{W.h(promesa)}</div></div>
   <div><div class="pn-cifra num{' hot' if hot else ''}">{W.h(cifra)}</div><div class="pn-sub">{W.h(sub)}</div>
   <div class="pn-abrir"><span>Abrir</span><span>→</span></div></div></a>"""
-    items = [(f"/{r}/", ic, n) for r, n, _, _, _, ic in ENFOQUES]
+    items = [(f"/{r}/", ic, n) for r, n, _, ic in ENFOQUES]
     # De donde salen los datos: el snapshot commiteado o Croma (ver
     # pliego/comun/fuente.py). El panel lo dice para que nadie confunda uno
     # con otro en una demo.
@@ -226,7 +262,11 @@ def panel():
     n_abiertos = len(filtro_datos.procesos())
     if est["fuente"] == "croma":
         kicker = f"Hoy · {_fecha_larga(fuente.hoy())} · datos de Croma al {W.h(str(est.get('as_of'))[:10])}"
-        origen = f"Datos públicos del SECOP II vía Croma (as_of {W.h(str(est.get('as_of'))[:10])}, {est.get('llamadas')} consultas, {est.get('creditos_restantes')} créditos restantes)."
+        if est.get("llamadas"):
+            detalle = f"{est['llamadas']} consultas, {est.get('creditos_restantes')} créditos restantes"
+        else:
+            detalle = "desde la caché local del día"
+        origen = f"Datos públicos del SECOP II vía Croma (as_of {W.h(str(est.get('as_of'))[:10])}, {detalle})."
     else:
         kicker = f"Hoy · {_fecha_larga(fuente.hoy())} · 6:00 a. m. (snapshot)"
         origen = f"Datos públicos del SECOP II (snapshot {fuente.hoy().isoformat()})."

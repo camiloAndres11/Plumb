@@ -8,6 +8,7 @@ esas tablas y devuelven las columnas que cada datos.py espera.
 """
 from __future__ import annotations
 
+import os
 from datetime import date
 
 import pytest
@@ -395,3 +396,17 @@ def test_una_busqueda_fallida_no_tumba_el_arranque(monkeypatch, tmp_path):
     contratos, adjudicados, abiertos, errores = F._traer(api, {"departamentos_interes": ["SANTANDER"]})
     assert len(errores) == 1 and "402" in errores[0]["error"]
     assert len(contratos) + len(adjudicados) + len(abiertos) == 8
+
+
+def test_entorno_carga_el_env_sin_pisar_lo_existente(tmp_path, monkeypatch):
+    from pliego.comun import entorno
+    archivo = tmp_path / ".env"
+    archivo.write_text("# comentario\nPRUEBA_A=uno\nPRUEBA_B='dos'\nPRUEBA_C=\nsin_igual\n", encoding="utf-8")
+    monkeypatch.setenv("PRUEBA_B", "ya-estaba")
+    monkeypatch.delenv("PRUEBA_A", raising=False)
+    monkeypatch.delenv("PRUEBA_C", raising=False)
+    cargado = entorno.cargar(archivo)
+    assert cargado == {"PRUEBA_A": "uno"}
+    assert os.environ["PRUEBA_A"] == "uno" and os.environ["PRUEBA_B"] == "ya-estaba"
+    assert "PRUEBA_C" not in os.environ
+    monkeypatch.delenv("PRUEBA_A")
