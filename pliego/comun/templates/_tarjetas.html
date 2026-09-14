@@ -1,0 +1,8 @@
+{# Las cinco tarjetas del panel. Espera `tarjetas` de pliego/comun/panel.tarjetas(): lista de dicts. #}
+{% for t in tarjetas %}
+<a class="pn-card{% if t.hot %} hot{% endif %}{% if not t.activo %} apagada{% endif %}" href="{{ t.href }}">
+<div><div class="pn-top"><span class="pn-ico">{{ iconos[t.icono] }}</span><span class="tag{% if not t.hot %} tag-neutro{% endif %}">Enfoque {{ loop.index }}</span></div>
+<div class="pn-nombre">{{ t.nombre }}</div><div class="pn-promesa">{{ t.promesa }}</div></div>
+<div><div class="pn-cifra num{% if t.hot %} hot{% endif %}">{{ t.cifra }}</div><div class="pn-sub">{{ t.sub }}</div>
+<div class="pn-abrir"><span>{{ "Abrir" if t.activo else "Pronto" }}</span><span>→</span></div></div></a>
+{% endfor %}

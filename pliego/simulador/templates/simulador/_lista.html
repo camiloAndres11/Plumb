@@ -1,0 +1,10 @@
+{% macro lista(abiertos, actual, etiqueta_fecha) %}
+<div class="lista"><div class="kicker">Procesos abiertos · licitación y selección abreviada</div>
+<label class="busca">{{ iconos.lupa }}<input id="busca" placeholder="Buscar entidad u objeto"></label>
+{% for a in abiertos %}
+<a class="proc{% if a.id_del_proceso == actual %} on{% endif %}" href="{{ raiz }}/proceso/{{ a.id_del_proceso }}" data-busca="{{ (a.entidad ~ " " ~ (a.descripcion or ""))|lower }}">
+<b>{{ (a.descripcion or "Sin descripción")|frase|truncate(80, true, "") }}</b>
+<small>{{ a.entidad|titulo_caso }} · {{ a.departamento|titulo_caso }} · {{ a.precio_base|mill }} · cierra en {{ a.dias_restantes }} días</small></a>
+{% endfor %}
+<div class="mute-50" style="font-size:12px">{{ abiertos|length }} procesos · {{ etiqueta_fecha }}</div></div>
+{% endmacro %}

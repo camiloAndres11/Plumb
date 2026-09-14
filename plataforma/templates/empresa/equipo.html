@@ -1,0 +1,32 @@
+{% extends "privada.html" %}
+{% from "_macros.html" import mensajes, cabecera, csrf, campo %}
+{% block cuerpo %}
+{{ cabecera("Empresa", "Equipo", "Quiénes pueden entrar a Pliego por " ~ empresa.nombre ~ ".") }}
+{{ mensajes(ok=ok, error=error, clase="msg") }}
+<div class="card"><table class="tabla"><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Verificado</th><th>Último acceso</th><th></th></tr>
+{% for u in equipo %}
+<tr><td>{{ u.nombre }}{% if u.id == usuario.id %} (usted){% endif %}</td><td>{{ u.email }}</td><td>{{ u.rol }}</td><td>{{ "sí" if u.email_verificado else "pendiente" }}</td>
+<td>{{ u.ultimo_acceso.strftime("%Y-%m-%d") if u.ultimo_acceso else "—" }}</td><td>
+{% if admin and u.id != usuario.id %}{% set otro = "miembro" if u.rol == "admin" else "admin" %}
+<form method="post" action="/empresa/equipo/rol" style="display:inline">{{ csrf(csrf_token) }}<input type="hidden" name="usuario_id" value="{{ u.id }}"><input type="hidden" name="rol" value="{{ otro }}"><button class="btn" type="submit">Hacer {{ otro }}</button></form>
+<form method="post" action="/empresa/equipo/quitar" style="display:inline" data-confirmar="¿Quitar a {{ u.nombre }} de la empresa?">{{ csrf(csrf_token) }}<input type="hidden" name="usuario_id" value="{{ u.id }}"><button class="btn peligro" type="submit">Quitar</button></form>
+{% endif %}
+</td></tr>
+{% endfor %}
+</table></div>
+{% if pendientes %}
+<div class="card" style="margin-top:24px"><div class="card-head"><div class="card-title">Invitaciones pendientes</div></div>
+<table class="tabla"><tr><th>Correo</th><th>Rol</th><th></th><th></th></tr>
+{% for t in pendientes %}<tr><td>{{ t.email }}</td><td>{{ t.rol }}</td><td>vence {{ t.expira.strftime("%Y-%m-%d") if t.expira else "—" }}</td><td>
+{% if admin %}<form method="post" action="/empresa/equipo/revocar" style="display:inline">{{ csrf(csrf_token) }}<input type="hidden" name="token" value="{{ t.id }}"><button class="btn peligro" type="submit">Revocar</button></form>{% endif %}
+</td></tr>{% endfor %}
+</table></div>
+{% endif %}
+{% if admin %}
+<div class="card" style="margin-top:24px"><div class="card-head"><div class="card-title">Invitar a alguien</div></div>
+<form method="post" action="/invitar" class="form">{{ csrf(csrf_token) }}<div class="fila">
+{{ campo("email", "Correo", "email", clase="campo", autocomplete="off") }}
+<label class="campo">Rol<select name="rol"><option value="miembro">Miembro</option><option value="admin">Administrador</option></select></label></div>
+<div><button class="btn hot" type="submit">Enviar invitación</button></div></form></div>
+{% endif %}
+{% endblock %}

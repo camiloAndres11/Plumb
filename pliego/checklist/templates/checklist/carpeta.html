@@ -1,0 +1,22 @@
+{% extends "checklist/_base.html" %}
+{% block cuerpo %}
+<div class="cab"><div><div class="kicker">Mi carpeta · ficticia, para el prototipo</div><h1 class="titulo">{{ constructora.nombre }}</h1></div></div>
+<div class="grid-5-7">
+  <div class="card"><div class="card-head"><div class="card-title">Documentos</div><div class="card-label">{{ documentos|length }} en carpeta · {{ faltan|length }} faltan</div></div>
+    <div class="rows" style="margin-top:12px">
+    {% for k, d, resumen in documentos %}
+    <div class="req" style="grid-template-columns:18px minmax(0,1fr)"><span class="check-on">{{ iconos.check }}</span>
+    <div><b>{{ d.get("archivo", k) }}</b><small>{{ k.replace("_", " ") }} · {{ resumen }}</small></div></div>
+    {% endfor %}
+    {% for k in faltan %}
+    <div class="req" style="grid-template-columns:18px minmax(0,1fr)"><span class="check-falta"></span>
+    <div><b class="hot">{{ k.replace("_", " ") }}</b><small>El pliego lo pide y no está en la carpeta.</small></div></div>
+    {% endfor %}
+    </div></div>
+  <div class="card"><div class="card-head"><div class="card-title">Contratos en el RUP</div><div class="card-label">{{ rup|length }} contratos</div></div>
+    <table class="tabla" style="margin-top:12px"><thead><tr><th>#</th><th>Objeto</th><th>Actividades</th><th class="num">SMMLV</th><th>Terminado</th></tr></thead><tbody>
+    {% for x in rup %}<tr><td>{{ x.consecutivo }}</td><td>{{ x.objeto }}</td><td>{{ x.actividades|join(", ")|replace("_", " ") }}</td><td class="num">{{ x.valor_smmlv|entero }}</td><td>{{ "sí" if x.terminado else "en ejecución" }}</td></tr>{% endfor %}
+    </tbody></table></div>
+</div>
+<p class="foot-note">La carpeta vive en pliego/checklist/fixtures/documentos_constructora.json. En producción los campos los extrae el pipeline de cada PDF del cliente.</p>
+{% endblock %}

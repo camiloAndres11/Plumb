@@ -1,0 +1,51 @@
+{% extends "simulador/_base.html" %}
+{% from "simulador/_lista.html" import lista with context %}
+{% block cuerpo %}
+<div class="dos">
+  {{ lista(abiertos, p.id_del_proceso, etiqueta_fecha) }}
+  <div style="display:flex;flex-direction:column;gap:18px">
+    <div><div class="kicker">{{ p.id_del_proceso }} · {{ p.entidad|titulo_caso }} · {{ MODALIDAD_CORTA.get(p.modalidad, p.modalidad) }} · presupuesto {{ p.precio_base|mill }}</div>
+      <h1 class="titulo" style="font-size:26px">Oferte al {{ r.ratio|pct(1) }}: {{ (r.precio_recomendado|mill).replace(' mill.', ' millones') }}.</h1>
+      <p class="mute" style="font-size:14px;margin-top:4px">{{ (p.descripcion or "")|frase|truncate(140, true, "") }}</p></div>
+    <div class="grid-5-7">
+      <div class="card" style="display:flex;flex-direction:column">
+        <div class="card-label">Precio recomendado</div>
+        <div class="grande num">{{ r.ratio|pct(1) }}</div>
+        <div style="font-size:14px;color:var(--ad-ink-60);margin-top:10px">del presupuesto oficial · <b class="num" style="color:var(--ad-ink)">{{ r.precio_recomendado|mill }}</b></div>
+        <div class="card-label" style="margin-top:18px">Rango con menos de 1 punto de diferencia</div>
+        <div class="rango"><span style="left:{{ '%.0f'|format(100 * (lo - 0.85) / 0.15) }}%;width:{{ '%.0f'|format(100 * (hi - lo) / 0.15) }}%"></span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--ad-ink-50);margin-top:6px"><span>85 %</span><span class="num" style="color:var(--ad-ink-85)">{{ lo|pct(1) }} – {{ hi|pct(1) }} · {{ r.rango_pesos[0]|mill }} – {{ r.rango_pesos[1]|mill }}</span><span>100 %</span></div>
+        <div class="grid-2" style="margin-top:18px">
+          <div class="mini"><small>Puntaje esperado</small><b class="num" style="font-size:22px">{{ r.esperado|num1 }} <span class="mute-50" style="font-size:12px;font-weight:400">de {{ v.puntaje_maximo|int }}</span></b></div>
+          <div class="mini"><small>Queda primero</small><b class="num" style="font-size:22px">{{ pt.prob_primero|pct(0) }} <span class="mute-50" style="font-size:12px;font-weight:400">entre ~{{ (pool.mediana_oferentes or 0)|int }} ofertas</span></b></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">Puntaje esperado según el precio</div><div class="card-label">{{ r.n_sim }} escenarios · pool: {{ pool.descripcion }} ({{ pool.n }} procesos)</div></div>
+        <div style="margin-top:14px">{{ grafico }}</div>
+        <div class="mute-50" style="font-size:12px;margin-top:6px">Línea roja: promedio ponderado por la probabilidad de cada método. Grises: cada método por separado. Banda: el rango recomendado.</div>
+      </div>
+    </div>
+    <div class="grid-5-7">
+      <div class="card">
+        <div class="card-head"><div class="card-title">Su precio</div><div class="card-label">mueva y compare</div></div>
+        <div style="display:flex;align-items:baseline;gap:10px;margin-top:12px"><span id="su-pct" class="num" style="font-size:30px;font-weight:600;letter-spacing:-.03em">{{ r.ratio|pct(1) }}</span><span id="su-cop" class="num" style="font-size:14px;color:var(--ad-ink-60)">{{ r.precio_recomendado|mill }}</span></div>
+        <input type="range" id="slider" min="0" max="{{ malla|length - 1 }}" step="1" value="{{ idx_pt }}" aria-label="Precio como fracción del presupuesto">
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--ad-ink-50);margin-top:4px"><span>85 %</span><span>100 %</span></div>
+        <div style="margin-top:14px;font-size:13px;color:var(--ad-ink-55)">Competidores probables: la mediana de las ofertas ganadoras en {{ pool.descripcion }} es {{ pool.mediana_ratio|pct(1) }} con {{ (pool.mediana_oferentes or 0)|int }} oferentes por proceso.</div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">Puntaje por método a ese precio</div><div class="card-label">el método lo eligen los centavos de la TRM</div></div>
+        <div style="margin-top:8px">
+        {% for m in r.metodos %}<div class="met" data-metodo="{{ m.clave }}"><span>{{ m.nombre }}<span class="trm">TRM {{ '%02d'|format(m.centavos[0]) }}–{{ '%02d'|format(m.centavos[1]) }} ¢ · {{ m.probabilidad|pct(0) }}</span></span><b class="num val">{{ pt.por_metodo[m.clave]|num1 }}</b></div>
+        {% endfor %}
+          <div class="met"><span><b>Esperado</b><span class="trm">ponderado</span></span><b class="num hot" id="su-esp">{{ pt.esperado|num1 }}</b></div>
+          <div class="met"><span>Queda primero</span><b class="num" id="su-pri">{{ pt.prob_primero|pct(0) }}</b></div></div>
+      </div>
+    </div>
+    <p class="foot-note">Fórmulas: {{ v.fuente }}. SECOP solo publica la oferta ganadora: los competidores se simulan con esa distribución. Es una estimación, no una garantía.
+    Versión de documentos tipo: <code>{{ version }}</code> (configurable en <code>pliego/simulador/metodos.py</code>).</p>
+  </div>
+</div>
+<script type="application/json" id="malla">{{ malla_json }}</script>
+{% endblock %}

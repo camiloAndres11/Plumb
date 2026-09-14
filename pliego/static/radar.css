@@ -1,0 +1,25 @@
+/* Radar de competidores (pliego/radar/templates/). */
+.stats-4 { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
+.gana { display: flex; flex-direction: column; gap: 14px; margin-top: 16px; }
+.gana .linea { display: flex; justify-content: space-between; gap: 16px; font-size: 14px; }
+.gana .linea span:last-child { color: var(--ad-ink-70); white-space: nowrap; }
+.gana .bar { margin-top: 8px; }
+.rank { display: grid; grid-template-columns: 28px minmax(0,1fr) 150px 120px 90px; gap: 14px; align-items: center; padding: 12px 14px; border-radius: 12px; background: var(--ad-fill-4); }
+.rank:hover { background: var(--ad-fill-2); }
+.rank.on { background: var(--ad-fill-2); }
+.rank b { font-size: 15px; font-weight: 600; display: block; }
+.rank small { display: block; font-size: 13px; color: var(--ad-ink-55); margin-top: 3px; }
+.rank .n { color: var(--ad-ink-50); font-size: 13px; font-variant-numeric: tabular-nums; }
+.rank .peso { font-size: 20px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.grid-8-4 { display: grid; grid-template-columns: minmax(0,8fr) minmax(0,4fr); gap: 18px; align-items: start; }
+.anios { display: flex; align-items: flex-end; gap: 8px; height: 90px; margin-top: 14px; }
+.anios div { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; height: 100%; justify-content: flex-end; }
+.anios i { display: block; width: 100%; border-radius: 4px 4px 0 0; background: var(--ad-ink-45); }
+.anios span { font-size: 11px; color: var(--ad-ink-50); }
+.lin { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--ad-line-soft); font-size: 14px; }
+.lin:last-child { border-bottom: 0; }
+.busca { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 999px; background: var(--ad-fill-2); border: 1px solid var(--ad-line); font-size: 14px; color: var(--ad-ink-50); max-width: 520px; }
+.busca input { background: transparent; border: 0; outline: 0; width: 100%; color: var(--ad-ink); font-size: 14px; }
+.res { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.res a { padding: 9px 12px; border-radius: 10px; background: var(--ad-fill-4); font-size: 14px; display: flex; justify-content: space-between; gap: 12px; }
+.res a small { color: var(--ad-ink-50); }

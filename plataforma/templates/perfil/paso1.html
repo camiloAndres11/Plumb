@@ -1,0 +1,11 @@
+{% extends "perfil/_base.html" %}
+{% block formulario %}
+{% set sede = p.get("sede") or {} %}
+<div class="fila">{{ campo("ciudad", "Ciudad de la sede", valor=(sede.get("ciudad") or "").title(), clase="campo") }}
+<label class="campo">Departamento de la sede<select name="departamento" required><option value="">—</option>{% for d in DEPARTAMENTOS %}<option value="{{ d }}"{% if d == sede.get("departamento") %} selected{% endif %}>{{ d.title() }}</option>{% endfor %}</select></label></div>
+<div class="campo">Departamentos donde licita <small>Pliego descarga los procesos y contratos de estos departamentos; elija hasta 10.</small>
+<div class="chips">{% for d in DEPARTAMENTOS %}<label class="chip"><input type="checkbox" name="departamentos_interes" value="{{ d }}"{% if d in deptos %} checked{% endif %}> {{ d.title() }}</label>{% endfor %}</div></div>
+<div class="campo">Qué construye (códigos UNSPSC) <small>Marque las clases que aparecen en sus contratos. La familia (4 dígitos) es lo que cuenta para la experiencia.</small>
+<div class="chips">{% for c, n in UNSPSC %}<label class="chip" title="{{ c }}"><input type="checkbox" name="unspsc" value="{{ c }}"{% if c in codigos %} checked{% endif %}> {{ n }} <small>{{ c[3:7] }}</small></label>{% endfor %}</div></div>
+{{ campo("unspsc_otros", "Otros códigos", valor=otros|join(", "), requerido=false, clase="campo", placeholder="V1.72141002, 72151100", ayuda="Separados por coma; con o sin el prefijo V1.") }}
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "publica.html" %}
+{% from "_macros.html" import mensajes, campo %}
+{% from "publico/_badge.html" import badge %}
+{% block tarjeta %}
+<div>{{ badge() }}<h1>Cree la cuenta de su empresa.</h1>
+<p class="sub">Usted queda como administrador y puede invitar a su equipo.</p></div>
+{{ mensajes(error=error) }}
+<form method="post" action="/registro" class="lg-campos">
+<div class="lg-fila">{{ campo("empresa", "Nombre de la empresa", valor=valores.get("empresa", ""), placeholder="Constructora Andina S.A.S.", autocomplete="organization") }}
+{{ campo("nit", "NIT", valor=valores.get("nit", ""), placeholder="900.123.456-7", ayuda="Con o sin dígito de verificación") }}</div>
+{{ campo("nombre", "Su nombre", valor=valores.get("nombre", ""), autocomplete="name") }}
+{{ campo("email", "Correo de trabajo", "email", valor=valores.get("email", ""), autocomplete="email") }}
+{{ campo("clave", "Contraseña", "password", autocomplete="new-password", ayuda="Mínimo 10 caracteres") }}
+<label class="lg-check"><input type="checkbox" name="acepta" value="1" required> Acepto los <a href="/terminos" target="_blank">términos</a> y la <a href="/privacidad" target="_blank">política de privacidad</a>.</label>
+<button class="ad-btn ad-btn-shadow" type="submit">Crear cuenta</button></form>
+<div class="lg-links"><a href="/login">Ya tengo cuenta</a><a href="/">Volver</a></div>
+{% endblock %}

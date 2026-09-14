@@ -1,0 +1,21 @@
+{% extends "privada.html" %}
+{% from "_macros.html" import mensajes, cabecera %}
+{% block head_extra %}<link rel="stylesheet" href="/static/panel.css">{% endblock %}
+{% block cuerpo %}
+{% if not listo %}
+{{ cabecera("Panel", "Buenos días, " ~ empresa.nombre.rstrip(".") ~ ".", "Lo que falta para que Pliego trabaje con sus datos.") }}
+{{ mensajes(ok=ok, error=error, clase="msg") }}
+<div class="card"><ul style="list-style:none;padding:0;margin:0;font-size:15px">
+{% for t, hecho, ruta in pasos %}<li style="margin:6px 0">{{ "✅" if hecho else "⬜" }} <a href="{{ ruta }}">{{ t }}</a></li>{% endfor %}
+</ul></div>
+{% else %}
+<div class="cab"><div><div class="kicker">{{ kicker }}</div>
+<h1 class="titulo">Buenos días, {{ empresa.nombre.rstrip(".") }}. Cinco maneras de ganar más obra.</h1>
+<p class="mute" style="font-size:14px;margin-top:6px">Cada tarjeta es un enfoque; todos corren sobre los procesos y contratos de sus departamentos.</p></div>
+<span class="badge"><span class="dot"></span>{{ n_abiertos }} procesos abiertos ahora</span></div>
+{{ mensajes(ok=ok, error=error, clase="msg") }}
+<div class="pn-grid">{% include "_tarjetas.html" %}
+<div class="pn-nota"><div class="kicker">Sus datos</div><p style="margin:0">{{ deptos }}: procesos abiertos y contratos de construcción del SECOP II, refrescados a diario. <a href="/empresa/datos">Ver estado</a> · <a href="/empresa/perfil/1">Editar perfil</a> · <a href="/pliegos">{% if pliego %}Pliego: {{ pliego.nombre }}{% else %}Subir un pliego{% endif %}</a></p></div></div>
+<p class="foot-note">Datos públicos del SECOP II vía Croma. Las probabilidades y recomendaciones son estimaciones; no garantizan un resultado.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "privada.html" %}
+{% from "_macros.html" import mensajes, cabecera, csrf, campo %}
+{% block cuerpo %}
+{{ cabecera("Empresa", "Perfil de " ~ empresa.nombre, "Con esto Pliego decide qué procesos le muestra y cómo los evalúa.") }}
+<div class="pasos">{% for n, t in TITULOS.items() %}{% if not loop.first %} · {% endif %}<a href="/empresa/perfil/{{ n }}" class="{{ "on" if n == paso else "" }}">{{ n }}. {{ t }}</a>{% endfor %}</div>
+{{ mensajes(ok=ok, error=error, clase="msg") }}
+<div class="card"><form method="post" action="/empresa/perfil/{{ paso }}" class="form">{{ csrf(csrf_token) }}
+{% block formulario %}{% endblock %}
+<div style="display:flex;gap:12px;align-items:center"><button class="btn hot" type="submit">Guardar y seguir</button>{% if paso > 1 %}<a class=btn href=/empresa/perfil/{{ paso - 1 }}>← Anterior</a>{% endif %}</div></form></div>
+{% endblock %}

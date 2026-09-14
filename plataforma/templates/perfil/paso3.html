@@ -1,0 +1,18 @@
+{% extends "perfil/_base.html" %}
+{% macro fila_exp(e) %}{% set e = e or {} %}
+<div class="exp-fila card" style="padding:14px;margin-bottom:10px"><div class="fila">
+{{ campo("exp_objeto", "Objeto del contrato", valor=e.get("objeto", ""), clase="campo") }}
+{{ campo("exp_entidad", "Entidad contratante", valor=(e.get("entidad") or "").title(), clase="campo") }}</div>
+<div class="fila" style="grid-template-columns:1fr 1fr 1fr 1fr">
+{{ campo("exp_unspsc", "UNSPSC", valor=e.get("unspsc", ""), clase="campo", placeholder="V1.72141000") }}
+{{ campo("exp_valor_smmlv", "Valor (SMMLV)", "number", valor=e.get("valor_smmlv", ""), clase="campo", extra='step="0.1"') }}
+{{ campo("exp_anio", "Año", "number", valor=e.get("anio", ""), clase="campo", extra='min="1990" max="2100"') }}
+<label class="campo">Liquidado<select name="exp_liquidado"><option value="1"{% if e.get("liquidado", true) %} selected{% endif %}>Sí</option><option value="0"{% if not e.get("liquidado", true) %} selected{% endif %}>No</option></select></label></div>
+<div style="margin-top:8px"><button type="button" class="btn peligro" data-quitar>Quitar</button></div></div>
+{%- endmacro %}
+{% block formulario %}
+<div class="campo">Contratos que acreditan experiencia <small>Los que están en el RUP. La experiencia se suma por familia UNSPSC (4 dígitos), así que un contrato de pavimentación cuenta para toda la familia 7214.</small></div>
+<div id="exp">{% for e in p.get("experiencia") or [] %}{{ fila_exp(e) }}{% endfor %}</div>
+<template id="fila-exp">{{ fila_exp(none) }}</template>
+<div><button type="button" class="btn" id="agregar-exp">+ Agregar contrato</button></div>
+{% endblock %}

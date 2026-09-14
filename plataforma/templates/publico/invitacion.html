@@ -1,0 +1,12 @@
+{% extends "publica.html" %}
+{% from "_macros.html" import mensajes, campo %}
+{% from "publico/_badge.html" import badge %}
+{% block tarjeta %}
+<div>{{ badge() }}<h1>Únase a {{ empresa.get("nombre", "") }}.</h1>
+<p class="sub">Cree su usuario para <b>{{ t.email }}</b> ({{ t.rol }}).</p></div>{{ mensajes(error=error) }}
+<form method="post" action="/invitacion/{{ token }}" class="lg-campos">
+{{ campo("nombre", "Su nombre", autocomplete="name") }}
+{{ campo("clave", "Contraseña", "password", autocomplete="new-password", ayuda="Mínimo 10 caracteres") }}
+<label class="lg-check"><input type="checkbox" name="acepta" value="1" required> Acepto los <a href="/terminos" target="_blank">términos</a> y la <a href="/privacidad" target="_blank">política de privacidad</a>.</label>
+<button class="ad-btn ad-btn-shadow" type="submit">Crear mi usuario</button></form>
+{% endblock %}

@@ -1,0 +1,15 @@
+{# Pantallas sin sesion: la tarjeta centrada sobre la landing.css. #}
+<!doctype html>
+<html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ titulo }} — Pliego</title><meta name="theme-color" content="#0b0b0d">
+<link rel="icon" type="image/png" href="/static/favicon-32.png" sizes="32x32">
+<link rel="stylesheet" href="/static/landing.css">
+<link rel="stylesheet" href="/static/plataforma.css">
+<body>
+<div class="lg">
+  <div class="ad-hero-bg" aria-hidden="true"></div><div class="ad-glow-a" aria-hidden="true"></div><div class="ad-glow-b" aria-hidden="true"></div>
+  <header class="lg-nav"><a class="ad-logo" href="/"><span class="ad-logo-mark" aria-hidden="true"><span></span><span></span><span></span></span>Pliego.</a><a href="{{ volver|default('/') }}">{{ volver_texto|default('← Volver a la landing') }}</a></header>
+  <main class="lg-centro"><div class="lg-card{% if ancha %} ancha{% endif %}">{% block tarjeta %}{% endblock %}</div></main>
+  <p class="lg-pie">{{ pie|default('Pliego · datos públicos del SECOP II. Las recomendaciones son estimaciones; no garantizan un resultado.') }}</p>
+</div>
+<script src="/static/plataforma.js"></script>

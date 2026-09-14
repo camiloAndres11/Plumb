@@ -1,0 +1,23 @@
+{% extends "privada.html" %}
+{% from "_macros.html" import mensajes, cabecera, campo, csrf %}
+{% block cuerpo %}
+{{ cabecera("Cuenta", usuario.nombre, usuario.email ~ " · " ~ usuario.rol ~ " en " ~ empresa.nombre) }}
+{{ mensajes(ok=ok, error=error, clase="msg") }}
+<div class="card"><div class="card-head"><div class="card-title">Nombre</div></div>
+<form method="post" action="/cuenta/nombre" class="form">{{ csrf(csrf_token) }}
+{{ campo("nombre", "Cómo aparece en el equipo", valor=usuario.nombre, clase="campo", autocomplete="name") }}
+<div><button class="btn" type="submit">Guardar</button></div></form></div>
+<div class="card" style="margin-top:24px"><div class="card-head"><div class="card-title">Contraseña</div></div>
+<form method="post" action="/cuenta/contrasena" class="form">{{ csrf(csrf_token) }}
+{{ campo("actual", "Contraseña actual", "password", clase="campo", autocomplete="current-password") }}
+<div class="fila">{{ campo("nueva", "Nueva", "password", clase="campo", autocomplete="new-password", ayuda="Mínimo 10 caracteres") }}
+{{ campo("nueva2", "Repítala", "password", clase="campo", autocomplete="new-password") }}</div>
+<div><button class="btn" type="submit">Cambiar</button></div></form></div>
+<div class="card" style="margin-top:24px"><div class="card-head"><div class="card-title">Sesiones abiertas</div></div>
+<table class="tabla"><tr><th>Último uso</th><th>IP</th><th>Navegador</th></tr>
+{% for s in sesiones_abiertas %}<tr><td>{{ s.ultimo_uso.strftime("%Y-%m-%d %H:%M") }}{% if s.id == sesion_id %} (esta){% endif %}</td>
+<td>{{ s.ip or "" }}</td><td style="max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.agente or "" }}</td></tr>{% endfor %}
+</table>
+<form method="post" action="/cuenta/cerrar-otras" style="margin-top:14px">{{ csrf(csrf_token) }}
+<button class="btn peligro" type="submit">Cerrar las demás sesiones</button></form></div>
+{% endblock %}

@@ -76,18 +76,20 @@ plataforma/
   esquemas.py     PerfilEmpresa (misma forma que perfil_constructora.json), pasos del wizard
   catalogos.py    departamentos y UNSPSC de construcción
   trabajos.py     cola en hilo: descargas de Croma por departamento, refresco diario, extracción de pliegos
-  enfoques.py     monta pliego/*/app.py bajo /app/* con ConPrefijo + guardia Protegido
+  enfoques.py     monta pliego/*/app.py bajo /app/* con app.mount + guardia Protegido (que ademas pone la sidebar de la plataforma en request.state.hub)
   pliegos.py      guardar PDF, extraer, elegir; extraccion.py: Claude + poppler; carpeta.py: documentos de la empresa
-  vistas.py       layouts publica() y privada(), campos, mensajes, sidebar
-  routers/        publico, panel, empresa (equipo, datos, documentos), perfil, cuenta, pliegos, admin
+  vistas.py       publica()/privada() sobre las plantillas de templates/, sidebar y hub()
+  templates/      Jinja2 con autoescape: publica.html, privada.html y una por pantalla
+  static/         landing, plataforma.css (formularios, tablas) y plataforma.js
+  routers/        publico, panel, empresa (equipo, datos, documentos), perfil, cuenta, pliegos, admin: solo formularios y redirecciones
   sql/            001_esquema.sql, 002_pliegos.sql
   tests/          seguridad y esquemas (puros); flujo, datos y pliegos (Postgres real, warehouse temporal, sin red)
 pliego/comun/
   contexto.py     la empresa (y su pliego) en un ContextVar durante cada petición
   warehouse.py    DuckDB en disco por departamento; consultar(sql, ambito) con vistas temporales
   cache.py        cache por ámbito + versión del warehouse (reemplaza lru_cache en los datos.py)
-  prefijo.py      ConPrefijo (montar apps bajo un prefijo) y sidebar_con_hub (parche de la demo)
-  panel.py        tarjetas con cifras, compartidas por demo y plataforma
+  web.py          plantillas(), render(), filtros de formato y Estaticos; templates/base.html es el shell
+  panel.py        tarjetas con cifras, compartidas por demo y plataforma (_tarjetas.html)
 ```
 
 ## Cómo funciona por dentro
@@ -114,8 +116,10 @@ pliego/comun/
   pendientes al arrancar); una búsqueda fallida deja el departamento en `error`, nada a
   medias. `pliego/comun/cache.py` cachea por ámbito y versión del warehouse.
 - **Enfoques**: `enfoques.py` monta las cinco apps bajo `/app/<enfoque>` con
-  `ConPrefijo` (reescribe URLs, cambia la sidebar) detrás de `Protegido` (sesión,
-  verificado, perfil completo, datos; checklist y generador exigen además un pliego).
+  `app.mount` detrás de `Protegido` (sesión, verificado, perfil completo, datos;
+  checklist y generador exigen además un pliego). Las plantillas arman las URLs con
+  el `root_path`, así que no hay que reescribir HTML; `Protegido` deja en
+  `request.state.hub` la sidebar de la plataforma y `base.html` la pinta.
 - **Pliegos**: `extraccion.py` hace **una llamada a `claude-opus-5`** con el PDF y una
   tool obligatoria cuyo `input_schema` es el contrato; convierte a las formas de
   `requisitos_*.json` y `pliego_*.json`; poppler localiza las citas y renderiza las

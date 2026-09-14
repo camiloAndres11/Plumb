@@ -1,0 +1,30 @@
+{% extends "radar/_base.html" %}
+{% from "radar/_macros.html" import stat with context %}
+{% block cuerpo %}
+<div class="cab"><div><div class="kicker">Entidad · NIT {{ nit }} · {{ e.departamento|titulo_caso }} · {{ TIPO_NOMBRE[tipo]|lower }}s</div>
+<h1 class="titulo" style="font-size:26px">{{ titular }}</h1><p class="mute" style="font-size:14px;margin-top:6px">{{ e.razon }}</p></div><div class="tabs">
+{% for t, n in tabs %}<a class="tab{% if t == tipo %} on{% endif %}" href="{{ raiz }}/entidad/{{ nit }}?tipo={{ t }}">{{ TIPO_NOMBRE[t] }} · {{ n }}</a>{% endfor %}
+</div></div>
+<div class="stats-4">
+  {{ stat("Procesos competitivos", e.n_competitivos, e.n_proveedores ~ " proveedores distintos") }}
+  {{ stat("Oferentes por proceso", (e.mediana_oferentes|int) if e.mediana_oferentes else "—", "mediana") }}
+  {{ stat("Adjudica al", e.mediana_ratio|pct(1), "del presupuesto · margen mediano " ~ e.margen_mediano|pct(1), true) }}
+  {{ stat("Proponente único", e.tasa_proponente_unico|pct, "de sus procesos") }}
+</div>
+<div class="grid-7-5">
+  <div class="card"><div class="card-head"><div class="card-title">Quién gana aquí</div><div class="card-label">{{ TIPO_NOMBRE[tipo]|lower }}s competitivas · {{ anios_min }}–{{ anios_max }}</div></div>
+    <div class="gana">
+    {% for g in gan %}
+    <div><div class="linea"><a href="{{ raiz }}/competidor/{{ g.doc }}">{{ (g.nombre or g.doc)|titulo_caso }}{% if g.es_grupo %} · consorcio{% endif %}</a>
+    <span class="num">{{ g.n }} de {{ e.n_competitivos }} · {{ g.share|pct(1) }}{% if g.mediana_ratio %} · ofrece al {{ g.mediana_ratio|pct(1) }}{% endif %} · último {{ g.ultimo_anio }}</span></div>
+    <div class="bar bar-8{% if loop.first %} bar-hot{% endif %}"><span style="--w:{{ '%.0f'|format(100 * g.n / mx) }}%"></span></div></div>
+    {% else %}<span class="mute">Sin procesos competitivos de este tipo.</span>{% endfor %}
+    </div>
+    <div class="mute-50" style="font-size:12px;margin-top:16px">"Ofrece al" es la mediana de sus ofertas ganadoras frente al presupuesto oficial. SECOP no publica las perdedoras: "gana" es lo único que se ve.</div></div>
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div class="card"><div class="card-title">Procesos por año</div><div class="anios">{% for y, v in anios.items() %}<div><i style="height:{{ '%.0f'|format([3, 60 * v / mxa]|max) }}px"></i><span>{{ (y|string)[2:] }}</span></div>{% endfor %}</div></div>
+    <div class="card"><div class="card-title">Qué significa para usted</div><div class="why">{% for t, ok in consejos %}<div class="{{ "" if ok else "minus" }}"><span>{{ t }}</span><b>{{ "+" if ok else "−" }}</b></div>{% else %}<div><span class="mute">Sin señales.</span></div>{% endfor %}</div></div>
+  </div>
+</div>
+<p class="foot-note">"Predecible" = un proveedor gana ≥ 40 %, o HHI ≥ 0,25, o ≥ 60 % con proponente único. "Abierta" = nadie pasa del 20 % y hay ≥ 5 oferentes por proceso. Solo contratos de construcción del SECOP II.</p>
+{% endblock %}

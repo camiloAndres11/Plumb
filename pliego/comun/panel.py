@@ -18,30 +18,6 @@ ENFOQUES = [
     ("generador", "Generador de propuesta", "Prepare la propuesta en horas, no en días.", "doc"),
 ]
 
-W.ICONOS.setdefault("check", '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>')
-W.ICONOS.setdefault("radar", '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="4"></circle><path d="M12 3v3M12 18v3M3 12h3M18 12h3"></path></svg>')
-
-CSS = """<style>
-.pn-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; }
-.pn-card { display: flex; flex-direction: column; justify-content: space-between; gap: 22px; padding: 26px 28px; border-radius: 18px; background: var(--ad-glass); border: 1px solid var(--ad-line); min-height: 250px; transition: border-color .3s, transform .3s var(--ad-ease); }
-.pn-card:hover { border-color: var(--ad-line-3); transform: translateY(-2px); }
-.pn-card.hot { border-color: rgba(255,255,255,.18); }
-.pn-card.apagada { opacity: .55; pointer-events: none; }
-.pn-top { display: flex; align-items: center; justify-content: space-between; }
-.pn-ico { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 12px; background: var(--ad-fill); color: var(--ad-ink-85); }
-.pn-card.hot .pn-ico { color: var(--ad-accent-2); }
-.pn-ico svg { width: 20px; height: 20px; }
-.pn-nombre { font-size: 20px; font-weight: 600; letter-spacing: -.02em; margin-top: 18px; }
-.pn-promesa { font-size: 14px; color: var(--ad-ink-60); margin-top: 6px; line-height: 1.5; }
-.pn-cifra { font-size: 28px; font-weight: 600; letter-spacing: -.03em; }
-.pn-sub { font-size: 12px; color: var(--ad-ink-50); margin-top: 2px; }
-.pn-abrir { display: flex; justify-content: space-between; margin-top: 16px; font-size: 14px; color: var(--ad-ink-85); }
-.pn-nota { display: flex; flex-direction: column; justify-content: center; gap: 10px; padding: 26px 28px; border-radius: 18px; border: 1px dashed var(--ad-line-3); color: var(--ad-ink-55); font-size: 14px; line-height: 1.5; }
-.pn-nota code { font-size: 12px; color: var(--ad-ink-75); }
-@media (max-width: 1100px) { .pn-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
-</style>"""
-
-
 def corto(nombre: str | None, n: int = 26) -> str:
     """Nombre de entidad para un pie de tarjeta: en tipo oracion y recortado."""
     s = W.frase(nombre) if nombre else ""
@@ -90,22 +66,14 @@ def cifras(activos: set[str] | None = None) -> dict[str, tuple[str, str]]:
     return salida
 
 
-def tarjetas(base: str = "/", activos: set[str] | None = None) -> str:
-    """El HTML de las cinco tarjetas. `base` es el prefijo de las rutas
-    ("/" en la demo: /filtro/; "/app/" en la plataforma: /app/filtro/)."""
+def tarjetas(base: str = "/", activos: set[str] | None = None) -> list[dict]:
+    """Las cinco tarjetas, para _tarjetas.html. `base` es el prefijo de las
+    rutas ("/" en la demo: /filtro/; "/app/" en la plataforma: /app/filtro/)."""
     activos = activos if activos is not None else {r for r, *_ in ENFOQUES}
     valores = cifras(activos)
-    html = ""
-    for i, (ruta, nombre, promesa, icono) in enumerate(ENFOQUES):
-        cifra, sub = valores[ruta]
-        hot, activo = i == 0, ruta in activos
-        html += (f'<a class="pn-card{" hot" if hot else ""}{"" if activo else " apagada"}" href="{base}{ruta}/">'
-                 f'<div><div class="pn-top"><span class="pn-ico">{W.ICONOS[icono]}</span>'
-                 f'<span class="tag{"" if hot else " tag-neutro"}">Enfoque {i + 1}</span></div>'
-                 f'<div class="pn-nombre">{W.h(nombre)}</div><div class="pn-promesa">{W.h(promesa)}</div></div>'
-                 f'<div><div class="pn-cifra num{" hot" if hot else ""}">{W.h(cifra)}</div><div class="pn-sub">{W.h(sub)}</div>'
-                 f'<div class="pn-abrir"><span>{"Abrir" if activo else "Pronto"}</span><span>→</span></div></div></a>')
-    return html
+    return [{"href": f"{base}{ruta}/", "nombre": nombre, "promesa": promesa, "icono": icono, "hot": i == 0,
+             "activo": ruta in activos, "cifra": valores[ruta][0], "sub": valores[ruta][1]}
+            for i, (ruta, nombre, promesa, icono) in enumerate(ENFOQUES)]
 
 
 MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",

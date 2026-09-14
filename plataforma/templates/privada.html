@@ -1,0 +1,13 @@
+{# Shell con sesion: el base.html de los enfoques con la sidebar de la plataforma. #}
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block head %}<link rel="stylesheet" href="/static/plataforma.css">{% block head_extra %}{% endblock %}{% endblock %}
+{% block sidebar %}
+<aside class="side">{{ LOGO }}
+{% for it in sidebar_items %}
+<a class="side-item{% if it.on %} on{% endif %}" href="{{ it.href }}">{{ iconos.get(it.icono, "") }}{{ it.texto }}</a>
+{% endfor %}
+{% include "_pie_sesion.html" %}
+</aside>
+{% endblock %}
+{% block js %}<script src="/static/plataforma.js"></script>{% block js_extra %}{% endblock %}{% endblock %}

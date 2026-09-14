@@ -1,0 +1,23 @@
+{% extends "perfil/_base.html" %}
+{% macro num(nombre, etiqueta, valor, paso="any", ayuda="", requerido=true) %}
+{{ campo(nombre, etiqueta, "number", valor="" if valor in (none, "") else valor, clase="campo", ayuda=ayuda, requerido=requerido, extra='step="' ~ paso ~ '" inputmode="decimal"') }}
+{%- endmacro %}
+{% block formulario %}
+{% set rup = p.get("rup") or {} %}{% set fin = p.get("financiero") or {} %}{% set org = p.get("organizacional") or {} %}{% set cu = p.get("cuantia_objetivo") or {} %}
+<div class="fila"><label class="campo">RUP<span class="lg-check" style="margin-top:8px"><input type="checkbox" name="rup_vigente" value="1"{% if rup.get("vigente") %} checked{% endif %}> Inscripción vigente en el Registro Único de Proponentes</span></label>
+{{ campo("rup_renovado", "Última renovación", "date", valor=rup.get("renovado") or "", requerido=false, clase="campo") }}</div>
+<div class="kicker" style="margin-top:8px">Indicadores financieros (del RUP)</div><div class="fila">
+{{ num("liquidez", "Índice de liquidez", fin.get("liquidez"), "0.01", "activo corriente / pasivo corriente") }}
+{{ num("endeudamiento", "Nivel de endeudamiento", fin.get("endeudamiento"), "0.01", "pasivo total / activo total, entre 0 y 1") }}
+{{ num("cobertura_intereses", "Razón de cobertura de intereses", fin.get("cobertura_intereses"), "0.01") }}
+{{ num("patrimonio", "Patrimonio (COP)", fin.get("patrimonio"), "1") }}
+{{ num("capital_trabajo", "Capital de trabajo (COP)", fin.get("capital_trabajo"), "1") }}</div>
+<div class="kicker" style="margin-top:8px">Indicadores organizacionales</div><div class="fila">
+{{ num("rentabilidad_patrimonio", "Rentabilidad del patrimonio", org.get("rentabilidad_patrimonio"), "0.001", "utilidad operacional / patrimonio") }}
+{{ num("rentabilidad_activo", "Rentabilidad del activo", org.get("rentabilidad_activo"), "0.001") }}</div>
+<div class="kicker" style="margin-top:8px">Capacidad</div><div class="fila">
+{{ num("capacidad_residual", "Capacidad residual de contratación (COP)", p.get("capacidad_residual"), "1", "lo que puede comprometer hoy") }}
+{{ num("contratos_en_ejecucion", "Contratos en ejecución", p.get("contratos_en_ejecucion"), "1") }}
+{{ num("cuantia_min", "Cuantía mínima que le interesa (COP)", cu.get("min"), "1") }}
+{{ num("cuantia_max", "Cuantía máxima (COP)", cu.get("max"), "1") }}</div>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% extends "publica.html" %}
+{% from "_macros.html" import mensajes, campo, csrf %}
+{% from "publico/_badge.html" import badge %}
+{% block tarjeta %}
+<div>{{ badge() }}<h1>Ingrese a Pliego.</h1><p class="sub">Sus licitaciones de hoy, listas a las 6:00.</p></div>
+{{ mensajes(ok=ok, error=error) }}
+<form method="post" action="/login" class="lg-campos">{% if siguiente %}<input type="hidden" name="siguiente" value="{{ siguiente }}">{% endif %}{{ csrf(token) }}
+{{ campo("email", "Correo", "email", valor=email, autocomplete="email") }}
+{{ campo("clave", "Contraseña", "password", autocomplete="current-password") }}
+<button class="ad-btn ad-btn-shadow" type="submit">Iniciar</button></form>
+<div class="lg-links"><a href="/olvide">¿Olvidó su contraseña?</a><a href="/registro">Crear una cuenta</a></div>
+{% endblock %}

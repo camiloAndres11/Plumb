@@ -1,0 +1,26 @@
+{% extends "radar/_base.html" %}
+{% from "radar/_macros.html" import stat with context %}
+{% block cuerpo %}
+<div><div class="kicker">Competidor · NIT {{ doc }} · {{ c.primer_anio }}–{{ c.ultimo_anio }}{% if c.es_grupo %} · consorcio{% endif %}</div>
+<h1 class="titulo" style="font-size:26px">{{ nombre }} está <span class='hot'>{{ nivel }}</span>: {% if c.n_en_ejecucion %}{{ c.saldo_pendiente|mill }} por ejecutar.{% else %}nada vigente en SECOP II.{% endif %}</h1><p class="mute" style="font-size:14px;margin-top:6px">{{ c.razon_saturacion }}</p></div>
+<div class="stats-4">
+  {{ stat("Contratos ganados", c.n_contratos, c.n_obra ~ " obras · " ~ c.n_interventoria ~ " interventorías") }}
+  {{ stat("Ofrece al", c.mediana_ratio|pct(1), "mediana de sus ofertas ganadoras", true) }}
+  {{ stat("En ejecución", c.n_en_ejecucion, "saldo " ~ c.saldo_pendiente|mill) }}
+  {{ stat("Ritmo anual", c.valor_anual|mill, "valor adjudicado por año") }}
+</div>
+<div class="grid-5-7">
+  <div class="card"><div class="card-head"><div class="card-title">Dónde gana</div><div class="card-label">contratos competitivos por entidad</div></div>
+    <div style="margin-top:6px">{% for x in c.entidades[:8] %}<div class="lin"><a href="{{ raiz }}/entidad/{{ x.nit }}">{{ x.entidad|titulo_caso }}</a><b class="num">{{ x.n }}</b></div>{% else %}<span class="mute">Solo contratación directa.</span>{% endfor %}</div><div class="chips" style="margin-top:16px">{% for d, n in c.departamentos[:5] %}<span class="chip">{{ d|titulo_caso }} · {{ n }}</span>{% endfor %}{% for f, n in c.familias[:4] %}<span class="chip">UNSPSC {{ f }} · {{ n }}</span>{% endfor %}</div></div>
+  <div class="card"><div class="card-head"><div class="card-title">Saturación · lo que tiene entre manos</div><div class="card-label">saldo pendiente / ritmo anual = {{ c.saturacion|round(1)|coma }} años</div></div>
+    <div class="bar bar-8 bar-hot" style="margin-top:14px"><span style="--w:{{ '%.0f'|format(sat_w) }}%"></span></div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ad-ink-50);margin-top:6px"><span>con capacidad</span><span>1 año · cargado</span><span>2 años · saturado</span><span>3+</span></div>
+    <div class="rows" style="margin-top:16px">
+    {% for x in c.en_ejecucion[:6] %}
+    <div class="row" style="grid-template-columns:minmax(0,1fr) auto"><div><b style="font-size:14px">{{ (x.objeto or "")|frase|truncate(80, true, "") }}</b>
+    <small>{{ x.entidad|titulo_caso }} · termina {{ x.fecha_fin[:10] or "sin fecha" }}</small></div><b class="num" style="font-size:15px">{{ x.saldo|mill }}</b></div>
+    {% else %}<span class="mute" style="font-size:13px">Sin contratos vigentes en SECOP II.</span>{% endfor %}
+    </div></div>
+</div>
+<p class="foot-note">Saturación = saldo por ejecutar de los contratos vigentes dividido por lo que adjudica al año. Un competidor saturado tiene menos capacidad residual para el siguiente proceso. Solo contratos publicados en SECOP II.</p>
+{% endblock %}

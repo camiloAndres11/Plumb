@@ -1,0 +1,22 @@
+{% extends "checklist/_base.html" %}
+{% from "checklist/_fila.html" import grupo with context %}
+{% block cuerpo %}
+<div class="cab">
+  <div><div class="kicker">{{ p.id }} · {{ p.entidad|titulo_caso }} · Licitación de obra pública</div>
+  <h1 class="titulo" style="font-size:26px;max-width:820px">{{ titular }}</h1>
+  <p class="mute" style="font-size:14px;margin-top:6px">{{ lote_.nombre }} · plazo {{ lote_.plazo_meses }} meses · {{ lote_.cuantia_smmlv|entero }} SMMLV</p></div>
+  <div class="tabs">
+  {% for x in p.lotes %}<a class="tab{% if x.n == lote_.n %} on{% endif %}" href="{{ raiz }}/?lote={{ x.n }}">Grupo {{ x.n }} · {{ x.presupuesto|mill }}</a>{% endfor %}
+  </div>
+</div>
+<div class="stats-4">
+{% for label, n, clase in stats %}
+<div class="stat" style="padding:16px 20px"><div class="card-label">{{ label }}</div><div class="big num {{ clase }}" style="font-size:36px">{{ n }}</div></div>
+{% endfor %}
+</div>
+{{ grupo("Lo que impide presentarse hoy", "primero lo que no se subsana solo", bloquean, lote_.n) }}
+{{ grupo("Revisar", "juicio humano o umbral que no viene en el PDF", revisar, lote_.n) }}
+{{ grupo("Cumple", ok|length ~ " de " ~ res.total, ok, lote_.n) }}
+<p class="foot-note">Cada requisito enlaza a la página exacta del pliego donde está escrito. Los umbrales financieros no vienen en el PDF (Matriz 2): se marcan para revisar aunque el dato cumpla.
+La extracción de requisitos es manual en este prototipo; la carpeta de documentos es ficticia. <a href="{{ raiz }}/pliego.pdf" target="_blank" style="color:var(--ad-ink-85)">Abrir el pliego completo →</a></p>
+{% endblock %}
