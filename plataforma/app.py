@@ -21,10 +21,11 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from plataforma import db
+from plataforma import db, seguridad, sesiones
+from plataforma import vistas as V
 from plataforma.config import RAIZ, VERSION, config
 
 log = logging.getLogger("pliego.plataforma")
@@ -48,6 +49,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Pliego", version=VERSION, lifespan=lifespan, docs_url=None, redoc_url=None)
 app.mount("/static", EstaticosDeDos(), name="static")
+app.middleware("http")(sesiones.cargar)
 
 
 @app.get("/health")
@@ -57,11 +59,24 @@ def health():
                          "secret_key": bool(config.secret_key)}, status_code=200 if ok else 503)
 
 
+@app.exception_handler(sesiones.Redirigir)
+async def _redirigir(request: Request, exc: sesiones.Redirigir):
+    return sesiones.redirigir(exc.url)
+
+
+@app.exception_handler(sesiones.Prohibido)
+async def _prohibido(request: Request, exc: sesiones.Prohibido):
+    return HTMLResponse(V.publica("Sin permiso", f"<div><h1>Sin permiso.</h1><p class='sub'>{V.h(str(exc))}</p></div>"
+                                  '<div class="lg-links"><a href="/panel">Ir al panel</a></div>'), status_code=403)
+
+
 @app.exception_handler(db.BaseNoDisponible)
-async def _sin_base(request: Request, exc: db.BaseNoDisponible):
-    return JSONResponse({"error": {"codigo": "base_no_disponible", "mensaje": str(exc)}}, status_code=503)
+@app.exception_handler(seguridad.SinSecreto)
+async def _sin_base(request: Request, exc: Exception):
+    return JSONResponse({"error": {"codigo": "servicio_no_configurado", "mensaje": str(exc)}}, status_code=503)
 
 
-from plataforma.routers import publico  # noqa: E402  (registra rutas sobre `app`)
+from plataforma.routers import cuenta, empresa, panel, publico  # noqa: E402  (registran rutas sobre `app`)
 
-app.include_router(publico.router)
+for r in (publico, panel, empresa, cuenta):
+    app.include_router(r.router)
