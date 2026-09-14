@@ -92,8 +92,7 @@ Todas documentadas en `.env.example`.
 (`rarechimera87`, `andres_nino`, …) ← `feature/<nombre>` (nace y muere en la
 personal, merge `--no-ff`). Detalle en [`docs/agents/flujo-ramas.md`](docs/agents/flujo-ramas.md).
 
-Issues en GitHub Issues de `camiloAndres11/Plumb`. Contexto de dominio en
-[`CONTEXT.md`](CONTEXT.md) y `docs/adr/`.
+Issues en GitHub Issues de `camiloAndres11/Plumb` (ver `docs/agents/`).
 
 ## Mapa del repo
 
